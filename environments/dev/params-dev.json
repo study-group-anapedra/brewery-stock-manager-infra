@@ -1,0 +1,10 @@
+[
+  { "ParameterKey": "Environment", "ParameterValue": "dev" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "KeyName", "ParameterValue": "chave-estoque-dev" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "Senha@12345" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "stock_user_dev" },
+  { "ParameterKey": "DBInstanceType", "ParameterValue": "db.t3.micro" },
+  { "ParameterKey": "InstanceType", "ParameterValue": "t3.micro" },
+  { "ParameterKey": "LatestAMIId", "ParameterValue": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64" }
+]

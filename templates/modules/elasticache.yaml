@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ElastiCache Redis for Application Tier
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateAppSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID from Application ASG
+
+Resources:
+
+  ############################
+  # SECURITY GROUP
+  ############################
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Redis access from App Tier
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId:
+            Ref: AppSecurityGroupId
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-redis-sg"
+
+  ############################
+  # SUBNET GROUP
+  ############################
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Redis
+      SubnetIds:
+        Ref: PrivateAppSubnets
+
+  ############################
+  # REDIS CLUSTER
+  ############################
+
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      CacheNodeType: cache.t3.micro
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - Ref: RedisSecurityGroup
+      CacheSubnetGroupName:
+        Ref: RedisSubnetGroup
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-redis"
+
+Outputs:
+
+  RedisEndpoint:
+    Description: Redis primary endpoint
+    Value:
+      Fn::GetAtt:
+        - RedisCluster
+        - RedisEndpoint.Address
+
+  RedisPort:
+    Description: Redis port
+    Value:
+      Fn::GetAtt:
+        - RedisCluster
+        - RedisEndpoint.Port

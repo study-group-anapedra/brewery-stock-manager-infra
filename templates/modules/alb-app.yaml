@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Internal Application Load Balancer for Application Tier
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateAppSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  WebSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID from Web Tier (ASG Web)
+
+Resources:
+
+  ############################
+  # SECURITY GROUP
+  ############################
+
+  ALBAppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow traffic from Web Tier
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId:
+            Ref: WebSecurityGroupId
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-alb-app-sg"
+
+  ############################
+  # LOAD BALANCER
+  ############################
+
+  ALBApp:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name:
+        Fn::Sub: "${ProjectName}-${Environment}-alb-app"
+      Scheme: internal
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        Ref: PrivateAppSubnets
+      SecurityGroups:
+        - Ref: ALBAppSecurityGroup
+      Tags:
+        - Key: Environment
+          Value:
+            Ref: Environment
+
+  ############################
+  # TARGET GROUP
+  ############################
+
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name:
+        Fn::Sub: "${ProjectName}-${Environment}-tg-app"
+      Port: 8080
+      Protocol: HTTP
+      VpcId:
+        Ref: VpcId
+      TargetType: instance
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      Matcher:
+        HttpCode: "200"
+
+  ############################
+  # LISTENER
+  ############################
+
+  ALBAppListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ALBApp
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: AppTargetGroup
+
+Outputs:
+
+  ALBAppDNS:
+    Description: DNS name of internal ALB App
+    Value:
+      Fn::GetAtt:
+        - ALBApp
+        - DNSName
+
+  AppTargetGroupArn:
+    Description: Target Group ARN for App ASG
+    Value:
+      Ref: AppTargetGroup
+
+  ALBAppSecurityGroupId:
+    Description: Security Group ID of ALB App
+    Value:
+      Ref: ALBAppSecurityGroup
+

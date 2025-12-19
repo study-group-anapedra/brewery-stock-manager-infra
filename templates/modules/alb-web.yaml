@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Public Application Load Balancer for Web Tier
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  ############################
+  # SECURITY GROUP
+  ############################
+  ALBWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/HTTPS from Internet
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-alb-web-sg"
+
+  ############################
+  # LOAD BALANCER
+  ############################
+  ALBWeb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name:
+        Fn::Sub: "${ProjectName}-${Environment}-alb-web"
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        Ref: PublicSubnets
+      SecurityGroups:
+        - Ref: ALBWebSecurityGroup
+      Tags:
+        - Key: Environment
+          Value:
+            Ref: Environment
+
+  ############################
+  # TARGET GROUP
+  ############################
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name:
+        Fn::Sub: "${ProjectName}-${Environment}-tg-web"
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Ref: VpcId
+      TargetType: instance
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      Matcher:
+        HttpCode: "200"
+
+  ############################
+  # LISTENER HTTP
+  ############################
+  ALBWebListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ALBWeb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: WebTargetGroup
+
+Outputs:
+
+  ALBWebDNS:
+    Description: DNS name of the public ALB
+    Value:
+      Fn::GetAtt:
+        - ALBWeb
+        - DNSName
+
+  WebTargetGroupArn:
+    Description: Target Group ARN for Web ASG
+    Value:
+      Ref: WebTargetGroup
+
+  ALBWebSecurityGroupId:
+    Description: Security Group ID of ALB Web
+    Value:
+      Ref: ALBWebSecurityGroup

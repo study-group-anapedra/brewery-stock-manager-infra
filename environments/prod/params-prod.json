@@ -1,0 +1,12 @@
+[
+  { "ParameterKey": "DomainName", "ParameterValue": "meusite.com" },
+  { "ParameterKey": "HostedZoneId", "ParameterValue": "Z123456789" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "SenhaForte123!" },
+  { "ParameterKey": "CertificateARN", "ParameterValue": "arn:aws:acm:us-east-1:000:cert" },
+  { "ParameterKey": "Environment", "ParameterValue": "prod" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "LatestAMIId", "ParameterValue": "ami-0c101f26f147fa7fd" },
+  { "ParameterKey": "KeyName", "ParameterValue": "vockey" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "admin" },
+  { "ParameterKey": "DBName", "ParameterValue": "stockmanager" }
+]

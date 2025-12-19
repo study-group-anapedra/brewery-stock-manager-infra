@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EFS for Application Tier (Multi-AZ)
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateAppSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID from Application ASG
+
+Resources:
+
+  ############################
+  # SECURITY GROUP
+  ############################
+
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow NFS access from App Tier
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId:
+            Ref: AppSecurityGroupId
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-efs-sg"
+
+  ############################
+  # EFS FILE SYSTEM
+  ############################
+
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      FileSystemTags:
+        - Key: Name
+          Value:
+            Fn::Sub: "${ProjectName}-${Environment}-efs"
+
+ ############################
+  # MOUNT TARGETS
+  ############################
+
+  MountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: { Ref: FileSystem }
+      SubnetId: { Fn::Select: [ 0, { Ref: PrivateAppSubnets } ] }
+      SecurityGroups:
+        - { Ref: EFSSecurityGroup }
+
+  MountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: { Ref: FileSystem }
+      SubnetId: { Fn::Select: [ 1, { Ref: PrivateAppSubnets } ] }
+      SecurityGroups:
+        - { Ref: EFSSecurityGroup }
+
+Outputs:
+  FileSystemId:
+    Value: { Ref: FileSystem }

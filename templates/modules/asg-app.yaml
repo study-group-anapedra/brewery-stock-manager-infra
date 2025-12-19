@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Auto Scaling Group for Application Tier (Java 21)
+
+Parameters:
+  Environment: { Type: String, AllowedValues: [dev, prod] }
+  ProjectName: { Type: String }
+  VpcId: { Type: AWS::EC2::VPC::Id }
+  PrivateAppSubnets: { Type: List<AWS::EC2::Subnet::Id> }
+  AppTargetGroupArn: { Type: String, Description: "Target Group ARN from ALB App" }
+  ALBAppSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id, Description: "SG do Load Balancer Interno" }
+  InstanceType: { Type: String, Default: t3.small }
+  LatestAMIId: { Type: AWS::EC2::Image::Id }
+  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
+
+Resources:
+
+  ############################
+  # SECURITY GROUP
+  ############################
+  AppInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow traffic from ALB App on port 8080
+      VpcId: { Ref: VpcId }
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: { Ref: ALBAppSecurityGroupId }
+      Tags:
+        - Key: Name
+          Value: { Fn::Sub: "${ProjectName}-${Environment}-app-sg" }
+
+  ############################
+  # LAUNCH TEMPLATE
+  ############################
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: { Fn::Sub: "${ProjectName}-${Environment}-app-lt" }
+      LaunchTemplateData:
+        ImageId: { Ref: LatestAMIId }
+        InstanceType: { Ref: InstanceType }
+        KeyName: { Ref: KeyName }
+        SecurityGroupIds:
+          - { Ref: AppInstanceSecurityGroup }
+        UserData:
+          Fn::Base64:
+            Fn::Sub: |
+              #!/bin/bash
+              # Atualiza o sistema e instala o Java 21 para o Stock Manager
+              yum update -y
+              yum install -y java-21-amazon-corretto
+              
+              # Criando identificador de ambiente
+              echo "Application Tier Java 21 - ${Environment}" > /opt/app.txt
+              
+              # Comandos para baixar e rodar o seu JAR (Exemplo)
+              # aws s3 cp s3://seu-bucket-de-builds/stock-manager.jar /opt/stock-manager.jar
+              # nohup java -jar /opt/stock-manager.jar > /var/log/app.log 2>&1 &
+
+  ############################
+  # AUTO SCALING GROUP
+  ############################
+  AppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: { Ref: PrivateAppSubnets }
+      LaunchTemplate:
+        LaunchTemplateId: { Ref: AppLaunchTemplate }
+        Version: { Fn::GetAtt: [AppLaunchTemplate, LatestVersionNumber] }
+      MinSize: "2"
+      MaxSize: "4"
+      DesiredCapacity: "2"
+      TargetGroupARNs:
+        - { Ref: AppTargetGroupArn }
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: { Fn::Sub: "${ProjectName}-${Environment}-app" }
+          PropagateAtLaunch: true
+
+Outputs:
+  AppASGName:
+    Value: { Ref: AppAutoScalingGroup }
+  AppSecurityGroupId:
+    Value: { Ref: AppInstanceSecurityGroup }
