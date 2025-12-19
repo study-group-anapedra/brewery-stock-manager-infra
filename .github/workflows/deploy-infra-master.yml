@@ -50,22 +50,20 @@ jobs:
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }}
 
-      ############################
-      # DEPLOY ALB WEB (HTTPS)
+     ############################
+      # DEPLOY ALB WEB 
       ############################
       - name: Deploy ALB Web Stack
         run: |
           aws cloudformation deploy \
             --stack-name alb-web-stack-${{ env.ENVIRONMENT }} \
-            --template-file templates/modules/alb-web-https-redirect.yaml \
+            --template-file templates/modules/alb-web.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
-              PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text) \
-              CertificateARN=${{ secrets.CERTIFICATE_ARN }}
-
+              PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text)
       ############################
       # DEPLOY ASG WEB
       ############################
