@@ -1,0 +1,185 @@
+name: Deploy Master Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy CloudFormation Master Stack
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      ENVIRONMENT: prod
+      PROJECT_NAME: stock-manager
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate master template
+        run: |
+          aws cloudformation validate-template --template-body file://master.yaml
+
+      ############################
+      # DEPLOY VPC
+      ############################
+      - name: Deploy VPC Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name vpc-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/vpc.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }}
+
+      ############################
+      # DEPLOY ALB WEB (HTTPS)
+      ############################
+      - name: Deploy ALB Web Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name alb-web-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/alb-web-https-redirect.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text) \
+              CertificateARN=${{ secrets.CERTIFICATE_ARN }}
+
+      ############################
+      # DEPLOY ASG WEB
+      ############################
+      - name: Deploy ASG Web Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name asg-web-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/asg-web.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateWebSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateWebSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateWebSubnetAZ2'].OutputValue" --output text) \
+              WebTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebTargetGroupArn'].OutputValue" --output text) \
+              ALBWebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBWebSecurityGroupId'].OutputValue" --output text) \
+              InstanceType=t3.micro \
+              LatestAMIId=${{ secrets.LATEST_AMI }} \
+              KeyName=${{ secrets.KEY_NAME }}
+
+      ############################
+      # DEPLOY ALB APP
+      ############################
+      - name: Deploy ALB App Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name alb-app-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/alb-app.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
+              WebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebSecurityGroupId'].OutputValue" --output text)
+
+      ############################
+      # DEPLOY ASG APP
+      ############################
+      - name: Deploy ASG App Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name asg-app-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/asg-app.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
+              AppTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppTargetGroupArn'].OutputValue" --output text) \
+              ALBAppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBAppSecurityGroupId'].OutputValue" --output text) \
+              InstanceType=t3.small \
+              LatestAMIId=${{ secrets.LATEST_AMI }} \
+              KeyName=${{ secrets.KEY_NAME }}
+
+      ############################
+      # DEPLOY EFS
+      ############################
+      - name: Deploy EFS Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name efs-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/efs.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
+              AppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppSecurityGroupId'].OutputValue" --output text)
+
+      ############################
+      # DEPLOY ELASTICACHE
+      ############################
+      - name: Deploy ElastiCache Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name elasticache-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/elasticache.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
+              AppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppSecurityGroupId'].OutputValue" --output text)
+
+      ############################
+      # DEPLOY RDS
+      ############################
+      - name: Deploy RDS Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name rds-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/rds.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateSubnetA=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateDbSubnetAZ1'].OutputValue" --output text) \
+              PrivateSubnetB=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateDbSubnetAZ2'].OutputValue" --output text) \
+              AppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppSecurityGroupId'].OutputValue" --output text) \
+              DBInstanceClass=${{ env.DB_INSTANCE_CLASS }} \
+              DBName=${{ env.DB_NAME }} \
+              DBUsername=${{ secrets.DB_USERNAME }} \
+              DBPassword=${{ secrets.DB_PASSWORD }}
+
+      ############################
+      # DEPLOY EDGE (CloudFront + Route53 + WAF + S3)
+      ############################
+      - name: Deploy Edge Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name edge-stack-${{ env.ENVIRONMENT }} \
+            --template-file modules/edge.yaml \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
+              CertificateARN=${{ secrets.CERTIFICATE_ARN }} \
+              ALBDomainName=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBWebDNS'].OutputValue" --output text)

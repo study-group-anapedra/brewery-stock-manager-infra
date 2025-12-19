@@ -1,0 +1,15 @@
+# Arquivos gerados por IDEs (VS Code, IntelliJ, etc)
+.idea/
+.vscode/
+
+# Logs e arquivos temporários
+*.log
+*.tmp
+/temp/
+
+# Arquivos sensíveis ou binários
+*.pem
+*.key
+
+# Resultados de comandos CloudFormation/AWS CLI (se existirem)
+/output/
