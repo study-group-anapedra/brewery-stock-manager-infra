@@ -1,4 +1,11 @@
 name: Deploy Master Infrastructure
+env:
+      AWS_REGION: us-east-1
+      ENVIRONMENT: prod
+      PROJECT_NAME: stock-manager
+      DB_INSTANCE_CLASS: db.t3.micro
+      DB_NAME: brewerydb
+      DOMAIN_NAME: brewery.stock.manager.com           
 
 on:
   push:
@@ -28,7 +35,7 @@ jobs:
 
       - name: Validate master template
         run: |
-          aws cloudformation validate-template --template-body file://master.yaml
+          aws cloudformation validate-template --template-body file://templates/master.yaml
 
       ############################
       # DEPLOY VPC
@@ -37,7 +44,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name vpc-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/vpc.yaml \
+            --template-file templates/modules/vpc.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -50,7 +57,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name alb-web-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/alb-web-https-redirect.yaml \
+            --template-file templates/modules/alb-web-https-redirect.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -66,7 +73,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name asg-web-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/asg-web.yaml \
+            --template-file templates/modules/asg-web.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -86,7 +93,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name alb-app-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/alb-app.yaml \
+            --template-file templates/modules/alb-app.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -102,7 +109,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name asg-app-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/asg-app.yaml \
+            --template-file templates/modules/asg-app.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -122,7 +129,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name efs-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/efs.yaml \
+            --template-file templates/modules/efs.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -138,7 +145,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name elasticache-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/elasticache.yaml \
+            --template-file templates/modules/elasticache.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -154,7 +161,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name rds-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/rds.yaml \
+            --template-file templates/modules/rds.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
@@ -174,7 +181,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --stack-name edge-stack-${{ env.ENVIRONMENT }} \
-            --template-file modules/edge.yaml \
+            --template-file templates/modules/edge.yaml \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
