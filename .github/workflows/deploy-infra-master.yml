@@ -36,21 +36,25 @@ jobs:
             --template-file templates/modules/vpc.yaml \
             --parameter-overrides Environment=dev ProjectName=estudo
 
-      ############################
-      # 2. DEPLOY RDS (Banco de Dados)
+     ############################
+      # 2. DEPLOY RDS (PostgreSQL)
       ############################
       - name: Deploy RDS
         run: |
           aws cloudformation deploy \
             --stack-name rds-simple \
             --template-file templates/modules/rds.yaml \
-            --capabilities CAPABILITY_NAMED_IAM \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Environment=dev \
+              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-simple --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
+              PrivateSubnetA=$(aws cloudformation describe-stacks --stack-name vpc-simple --query "Stacks[0].Outputs[?OutputKey=='PrivateDbSubnetAZ1'].OutputValue" --output text) \
+              PrivateSubnetB=$(aws cloudformation describe-stacks --stack-name vpc-simple --query "Stacks[0].Outputs[?OutputKey=='PrivateDbSubnetAZ2'].OutputValue" --output text) \
+              AppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name vpc-simple --query "Stacks[0].Outputs[?OutputKey=='WebSecurityGroupId'].OutputValue" --output text) \
               DBInstanceClass=db.t3.micro \
+              DBName=brewerydb \
               DBUsername=${{ secrets.DB_USERNAME }} \
-              DBPassword=${{ secrets.DB_PASSWORD }} \
-              VpcId=$(aws cloudformation describe-stacks --stack-name vpc-simple --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text)
+              DBPassword=${{ secrets.DB_PASSWORD }}
 
       ############################
       # 3. DEPLOY EC2 (Seu Servidor)
