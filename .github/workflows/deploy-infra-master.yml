@@ -64,7 +64,7 @@ jobs:
               ProjectName=${{ env.PROJECT_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
               PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text)
-      ############################
+    ############################
       # DEPLOY ASG WEB
       ############################
       - name: Deploy ASG Web Stack
@@ -72,17 +72,14 @@ jobs:
           aws cloudformation deploy \
             --stack-name asg-web-stack-${{ env.ENVIRONMENT }} \
             --template-file templates/modules/asg-web.yaml \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
+              KeyName=${{ secrets.KEY_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
-              PrivateWebSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateWebSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateWebSubnetAZ2'].OutputValue" --output text) \
-              WebTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebTargetGroupArn'].OutputValue" --output text) \
-              ALBWebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBWebSecurityGroupId'].OutputValue" --output text) \
-              InstanceType=t3.micro \
-              LatestAMIId=${{ secrets.LATEST_AMI }} \
-              KeyName=${{ secrets.KEY_NAME }}
+              PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text) \
+              LatestAMIID=${{ secrets.LATEST_AMI }}
 
       ############################
       # DEPLOY ALB APP
