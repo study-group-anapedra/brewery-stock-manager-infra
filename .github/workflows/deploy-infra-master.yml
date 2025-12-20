@@ -64,7 +64,7 @@ jobs:
               ProjectName=${{ env.PROJECT_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
               PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text)
-    ############################
+   ############################
       # DEPLOY ASG WEB
       ############################
       - name: Deploy ASG Web Stack
@@ -76,12 +76,17 @@ jobs:
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
-              KeyName=${{ secrets.KEY_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
               PublicSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetAZ2'].OutputValue" --output text) \
+              PrivateWebSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetAZ2'].OutputValue" --output text) \
+              ALBWebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBWebSecurityGroupId'].OutputValue" --output text) \
+              WebTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebTargetGroupArn'].OutputValue" --output text) \
+              KeyName=${{ secrets.KEY_NAME }} \
+              LatestAMIID=${{ secrets.LATEST_AMI }} \
+              InstanceType=t3.micro
               LatestAMIID=${{ secrets.LATEST_AMI }}
 
-      ############################
+     ############################
       # DEPLOY ALB APP
       ############################
       - name: Deploy ALB App Stack
@@ -94,30 +99,27 @@ jobs:
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
-              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
-              WebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebSecurityGroupId'].OutputValue" --output text)
-
+              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text)
+     ############################
+      # DEPLOY ASG WEB
       ############################
-      # DEPLOY ASG APP
-      ############################
-      - name: Deploy ASG App Stack
+      - name: Deploy ASG Web Stack
         run: |
           aws cloudformation deploy \
-            --stack-name asg-app-stack-${{ env.ENVIRONMENT }} \
-            --template-file templates/modules/asg-app.yaml \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --stack-name asg-web-stack-${{ env.ENVIRONMENT }} \
+            --template-file templates/modules/asg-web.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
-              PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
-              AppTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppTargetGroupArn'].OutputValue" --output text) \
-              ALBAppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBAppSecurityGroupId'].OutputValue" --output text) \
-              InstanceType=t3.small \
+              PrivateWebSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetAZ2'].OutputValue" --output text) \
+              WebTargetGroupArn=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='WebTargetGroupArn'].OutputValue" --output text) \
+              ALBWebSecurityGroupId=$(aws cloudformation describe-stacks --stack-name alb-web-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='ALBWebSecurityGroupId'].OutputValue" --output text) \
+              InstanceType=t3.micro \
               LatestAMIId=${{ secrets.LATEST_AMI }} \
               KeyName=${{ secrets.KEY_NAME }}
-
-      ############################
+     ############################
       # DEPLOY EFS
       ############################
       - name: Deploy EFS Stack
@@ -132,8 +134,7 @@ jobs:
               VpcId=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text) \
               PrivateAppSubnets=$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ1'].OutputValue" --output text),$(aws cloudformation describe-stacks --stack-name vpc-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='PrivateAppSubnetAZ2'].OutputValue" --output text) \
               AppSecurityGroupId=$(aws cloudformation describe-stacks --stack-name asg-app-stack-${{ env.ENVIRONMENT }} --query "Stacks[0].Outputs[?OutputKey=='AppSecurityGroupId'].OutputValue" --output text)
-
-      ############################
+     ############################
       # DEPLOY ELASTICACHE
       ############################
       - name: Deploy ElastiCache Stack
