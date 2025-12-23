@@ -1,118 +1,68 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Auto Scaling Group for Application Tier (Java 21)
+Description: Módulo Load Balancer Web (ALB) - Conexão via ImportValue com ACM
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues: [dev, prod]
-
-  ProjectName:
-    Type: String
-
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-
-  PrivateAppSubnets:
-    Type: List<AWS::EC2::Subnet::Id>
-
-  AppTargetGroupArn:
-    Type: String
-    Description: Target Group ARN from ALB App
-
-  ALBAppSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Security Group do ALB interno
-
-  InstanceType:
-    Type: String
-    Default: t3.small
-
-  LatestAMIId:
-    Type: AWS::EC2::Image::Id
-
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
+  Environment: { Type: String }
+  ProjectName: { Type: String }
+  VpcId: { Type: AWS::EC2::VPC::Id }
+  PublicSubnets: { Type: List<AWS::EC2::Subnet::Id> }
+  ALBWebSecurityGroupId: { Type: String }
 
 Resources:
-
-  ############################
-  # IAM INSTANCE PROFILE
-  ############################
-  AppInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+  # --- Load Balancer Público ---
+  ALBWeb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Roles:
-        - stock-manager-prod-ec2-role
+      Name: !Sub "${ProjectName}-${Environment}-alb-web"
+      Subnets: !Ref PublicSubnets
+      SecurityGroups: 
+        - !Ref ALBWebSecurityGroupId
+      Scheme: internet-facing
 
-  ############################
-  # SECURITY GROUP
-  ############################
-  AppInstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  # --- Grupo de Destino (Para o Auto Scaling Web) ---
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      GroupDescription: Allow traffic from ALB App on port 8080
       VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          SourceSecurityGroupId: !Ref ALBAppSecurityGroupId
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-sg"
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckPath: /
 
-  ############################
-  # LAUNCH TEMPLATE
-  ############################
-  AppLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
+  # --- Listener HTTPS (Porta 443) ---
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-lt"
-      LaunchTemplateData:
-        IamInstanceProfile:
-          Name: !Ref AppInstanceProfile
-        ImageId: !Ref LatestAMIId
-        InstanceType: !Ref InstanceType
-        KeyName: !Ref KeyName
-        SecurityGroupIds:
-          - !Ref AppInstanceSecurityGroup
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            yum update -y
-            yum install -y java-21-amazon-corretto
+      LoadBalancerArn: !Ref ALBWeb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        # SIM: Aqui buscamos o certificado que o módulo ACM exportou
+        - CertificateArn: !ImportValue 
+            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
 
-            echo "Application Tier Java 21 - ${Environment}" > /opt/app.txt
-
-            # Exemplo de start da aplicação
-            # aws s3 cp s3://seu-bucket/stock-manager.jar /opt/stock-manager.jar
-            # nohup java -jar /opt/stock-manager.jar > /var/log/app.log 2>&1 &
-
-  ############################
-  # AUTO SCALING GROUP
-  ############################
-  AppAutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
+  # --- Listener HTTP (Porta 80) - Redireciona para HTTPS ---
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      VPCZoneIdentifier: !Ref PrivateAppSubnets
-      LaunchTemplate:
-        LaunchTemplateId: !Ref AppLaunchTemplate
-        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
-      MinSize: "2"
-      MaxSize: "4"
-      DesiredCapacity: "2"
-      TargetGroupARNs:
-        - !Ref AppTargetGroupArn
-      HealthCheckType: ELB
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app"
-          PropagateAtLaunch: true
+      LoadBalancerArn: !Ref ALBWeb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
 
 Outputs:
-  AppASGName:
-    Value: !Ref AppAutoScalingGroup
-
-  AppSecurityGroupId:
-    Value: !Ref AppInstanceSecurityGroup
+  ALBWebDNS:
+    Value: !GetAtt ALBWeb.DNSName
+  ALBHostedZoneId:
+    Value: !GetAtt ALBWeb.CanonicalHostedZoneID
+  # SIM: Essencial para o Master entregar este valor ao ASG Web
+  WebTargetGroupArn:
+    Value: !Ref WebTargetGroup

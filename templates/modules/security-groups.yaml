@@ -1,21 +1,21 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Security Groups - ALB, Application and RDS
+Description: Central Security Groups - Web (ALB), App (ASG) and RDS (Database)
 
 Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
 
 Resources:
-
-  # =========================
-  # ALB - Web Layer
-  # =========================
+  # 1. ALB Público (Entrada Web)
   AlbWebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB Web SG
-      VpcId:
-        Ref: VpcId
+      GroupDescription: "Public ALB Security Group (HTTP/HTTPS)"
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -25,57 +25,47 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-alb-web-sg"
 
-  # =========================
-  # Application Layer
-  # =========================
+  # 2. Camada de Aplicação (Só aceita tráfego vindo do ALB)
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Application SG
-      VpcId:
-        Ref: VpcId
+      GroupDescription: "Application Tier Security Group (Port 8080)"
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
-          SourceSecurityGroupId:
-            Ref: AlbWebSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+          SourceSecurityGroupId: !Ref AlbWebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # =========================
-  # Database Layer
-  # =========================
+  # 3. Camada de Dados (Só aceita tráfego vindo da App)
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: RDS PostgreSQL SG
-      VpcId:
-        Ref: VpcId
+      GroupDescription: "Database Tier Security Group (PostgreSQL)"
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          SourceSecurityGroupId:
-            Ref: AppSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-rds-sg"
 
 Outputs:
   AlbWebSecurityGroupId:
-    Value:
-      Ref: AlbWebSecurityGroup
-
+    Description: "ID do Security Group do Load Balancer"
+    Value: !Ref AlbWebSecurityGroup
   AppSecurityGroupId:
-    Value:
-      Ref: AppSecurityGroup
-
+    Description: "ID do Security Group da Aplicação"
+    Value: !Ref AppSecurityGroup
   RDSSecurityGroupId:
-    Value:
-      Ref: RDSSecurityGroup
+    Description: "ID do Security Group do Banco de Dados"
+    Value: !Ref RDSSecurityGroup

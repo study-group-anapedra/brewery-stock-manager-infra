@@ -2,9 +2,12 @@
   { "ParameterKey": "Environment", "ParameterValue": "dev" },
   { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
   { "ParameterKey": "KeyName", "ParameterValue": "chave-estoque-dev" },
-  { "ParameterKey": "DBPassword", "ParameterValue": "Senha@12345" },
   { "ParameterKey": "DBUsername", "ParameterValue": "stock_user_dev" },
-  { "ParameterKey": "DBInstanceType", "ParameterValue": "db.t3.micro" },
-  { "ParameterKey": "InstanceType", "ParameterValue": "t3.micro" },
-  { "ParameterKey": "LatestAMIId", "ParameterValue": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64" }
+  { "ParameterKey": "DBPassword", "ParameterValue": "Senha@12345" },
+  { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t3.micro" },
+  { "ParameterKey": "WebInstanceType", "ParameterValue": "t3.micro" },
+  { "ParameterKey": "AppInstanceType", "ParameterValue": "t3.small" },
+  { "ParameterKey": "LatestAMIId", "ParameterValue": "ami-0c101f26f147fa7fd" },
+  { "ParameterKey": "DomainName", "ParameterValue": "asantanadev.com" },
+  { "ParameterKey": "HostedZoneId", "ParameterValue": "Z0620408R2C0W7F3G8S7" }
 ]

@@ -1,80 +1,43 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Edge Layer - Route53, CloudFront, S3, WAF and ACM
+Description: Edge Layer - CloudFront, S3, WAF e Integração com Certificado Importado
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues:
-      - dev
-      - prod
-
-  ProjectName:
-    Type: String
-
-  DomainName:
-    Type: String
-
-  HostedZoneId:
-    Type: String
-
-  CertificateARN:
-    Type: String
-
-  ALBDomainName:
-    Type: String
+  Environment: { Type: String }
+  ProjectName: { Type: String }
+  DomainName: { Type: String }
+  HostedZoneId: { Type: String }
+  # Removido CertificateARN manual para usar !ImportValue
+  ALBDomainName: { Type: String }
 
 Resources:
-
+  # --- Armazenamento Estático (S3) ---
   StaticContentBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName:
-        Fn::Sub: "${ProjectName}-${Environment}-static-content"
+      BucketName: !Sub "${ProjectName}-${Environment}-static-assets"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      VersioningConfiguration:
-        Status: Enabled
 
+  # --- Controle de Acesso S3 (OAC) ---
   CloudFrontOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name:
-          Fn::Sub: "${ProjectName}-${Environment}-oac"
+        Name: !Sub "${ProjectName}-${Environment}-oac"
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
 
-  StaticBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket:
-        Ref: StaticContentBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource:
-              Fn::Sub: "${StaticContentBucket.Arn}/*"
-            Condition:
-              StringEquals:
-                AWS:SourceArn:
-                  Fn::Sub: "arn:aws:cloudfront::${AWS::AccountId}:distribution/*"
-
+  # --- Proteção WAF (CloudFront) ---
   WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name:
-        Fn::Sub: "${ProjectName}-${Environment}-waf"
+      Name: !Sub "${ProjectName}-${Environment}-waf"
       Scope: CLOUDFRONT
-      DefaultAction:
-        Allow: {}
+      DefaultAction: { Allow: {} }
       VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
@@ -82,8 +45,7 @@ Resources:
       Rules:
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 1
-          OverrideAction:
-            None: {}
+          OverrideAction: { None: {} }
           Statement:
             ManagedRuleGroupStatement:
               VendorName: AWS
@@ -93,97 +55,40 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: common
 
+  # --- Distribuição CloudFront ---
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Enabled: true
-
-        Aliases:
-          - Ref: DomainName
-
+        Aliases: 
+          - !Ref DomainName
         Origins:
           - Id: S3Origin
-            DomainName:
-              Fn::GetAtt:
-                - StaticContentBucket
-                - RegionalDomainName
-            OriginAccessControlId:
-              Ref: CloudFrontOAC
-            S3OriginConfig: {}
-
+            DomainName: !GetAtt StaticContentBucket.RegionalDomainName
+            OriginAccessControlId: !Ref CloudFrontOAC
           - Id: ALBOrigin
-            DomainName:
-              Ref: ALBDomainName
+            DomainName: !Ref ALBDomainName
             CustomOriginConfig:
-              HTTPSPort: 443
-              OriginProtocolPolicy: https-only
-            OriginCustomHeaders:
-              - HeaderName: X-From-CloudFront
-                HeaderValue: "true"
-
+              OriginProtocolPolicy: https-only 
         DefaultCacheBehavior:
           TargetOriginId: ALBOrigin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-            - POST
-          CachedMethods:
-            - GET
-            - HEAD
+          AllowedMethods: [GET, HEAD, OPTIONS, POST, PUT, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
           ForwardedValues:
             QueryString: true
-            Cookies:
-              Forward: all
-
-        CacheBehaviors:
-          - PathPattern: "/static/*"
-            TargetOriginId: S3Origin
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods:
-              - GET
-              - HEAD
-            CachedMethods:
-              - GET
-              - HEAD
-            ForwardedValues:
-              QueryString: false
-              Cookies:
-                Forward: none
-
+            Cookies: { Forward: all }
         ViewerCertificate:
-          AcmCertificateArn:
-            Ref: CertificateARN
+          # SIM: Agora importa o certificado criado na região us-east-1
+          AcmCertificateArn: !ImportValue 
+            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
-
-        WebACLId:
-          Ref: WebACL
-
-  CloudFrontDNS:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId:
-        Ref: HostedZoneId
-      Name:
-        Ref: DomainName
-      Type: A
-      AliasTarget:
-        DNSName:
-          Fn::GetAtt:
-            - CloudFrontDistribution
-            - DomainName
-        HostedZoneId: Z2FDTNDATAQYW2
+        WebACLId: !GetAtt WebACL.Arn
 
 Outputs:
   CloudFrontDomainName:
-    Value:
-      Fn::GetAtt:
-        - CloudFrontDistribution
-        - DomainName
-
-  StaticBucketName:
-    Value:
-      Ref: StaticContentBucket
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  CloudFrontHostedZoneId:
+    Value: Z2FDTNDATAQYW2

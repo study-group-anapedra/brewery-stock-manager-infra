@@ -1,68 +1,73 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Auto Scaling Group for Web Tier
+Description: Módulo Auto Scaling Group (ASG) para a Camada Web
 
 Parameters:
-  Environment: { Type: String }
-  ProjectName: { Type: String }
-  VpcId: { Type: AWS::EC2::VPC::Id }
-  PrivateWebSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  WebTargetGroupArn: { Type: String }
-  InstanceType: { Type: String }
-  LatestAMIId: { Type: AWS::EC2::Image::Id }
-  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
-  # Adicionado para resolver o erro de referência
-  ALBWebSecurityGroupId: { Type: String }
+  Environment:
+    Type: String
+  ProjectName:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateWebSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  WebTargetGroupArn:
+    Type: String
+    Description: "ARN do Target Group vindo do ALB"
+  ALBWebSecurityGroupId:
+    Type: String
+    Description: "Security Group que permite tráfego do ALB"
+  InstanceType:
+    Type: String
+  LatestAMIId:
+    Type: AWS::EC2::Image::Id
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
-  WebInstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow traffic from ALB Web
-      VpcId: { Ref: VpcId }
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          # Usando o parâmetro correto com sintaxe completa
-          SourceSecurityGroupId: { Ref: ALBWebSecurityGroupId }
-      Tags:
-        - Key: Name
-          Value: { Fn::Sub: "${ProjectName}-${Environment}-web-sg" }
-
+  # --- Configuração de Lançamento (Launch Template) ---
+  # Sim: Define como cada servidor individual deve ser configurado
   WebLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-web-launch-template"
       LaunchTemplateData:
-        ImageId: { Ref: LatestAMIId }
-        InstanceType: { Ref: InstanceType }
-        KeyName: { Ref: KeyName }
+        ImageId: !Ref LatestAMIId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
         SecurityGroupIds:
-          - { Ref: WebInstanceSecurityGroup }
+          - !Ref ALBWebSecurityGroupId
         UserData:
-          Fn::Base64:
-            Fn::Sub: |
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
-              echo "<h1>Web Tier - ${Environment}</h1>" > /var/www/html/index.html
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>Servidor Web do Projeto ${ProjectName} - Ambiente ${Environment}</h1>" > /var/log/index.html
 
-  WebAutoScalingGroup:
+  # --- Auto Scaling Group ---
+  # Sim: Gerencia a quantidade de servidores e a saúde deles
+  WebASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      VPCZoneIdentifier: { Ref: PrivateWebSubnets }
+      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-web-asg"
+      VPCZoneIdentifier: !Ref PrivateWebSubnets
       LaunchTemplate:
-        LaunchTemplateId: { Ref: WebLaunchTemplate }
-        Version: { Fn::GetAtt: [WebLaunchTemplate, LatestVersionNumber] }
+        LaunchTemplateId: !Ref WebLaunchTemplate
+        Version: !GetAtt WebLaunchTemplate.LatestVersionNumber
       MinSize: "2"
       MaxSize: "4"
       DesiredCapacity: "2"
       TargetGroupARNs:
-        - { Ref: WebTargetGroupArn }
+        - !Ref WebTargetGroupArn
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-web-server"
+          PropagateAtLaunch: true
 
 Outputs:
-  WebSecurityGroupId:
-    Value: { Ref: WebInstanceSecurityGroup }
+  AsgName:
+    Description: "Nome do Auto Scaling Group Web"
+    Value: !Ref WebASG

@@ -1,83 +1,55 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: EFS for Application Tier (Multi-AZ)
+Description: EFS for Application Tier (Multi-AZ) - Corrigido
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues:
-      - dev
-      - prod
-
-  ProjectName:
-    Type: String
-
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-
-  PrivateAppSubnets:
-    Type: List<AWS::EC2::Subnet::Id>
-
-  AppSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Security Group ID from Application ASG
+  Environment: { Type: String, AllowedValues: [dev, prod] }
+  ProjectName: { Type: String }
+  VpcId: { Type: AWS::EC2::VPC::Id }
+  PrivateAppSubnets: { Type: "List<AWS::EC2::Subnet::Id>" }
+  AppSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id }
 
 Resources:
-
-  ############################
-  # SECURITY GROUP
-  ############################
-
+  # 1. Segurança: Porta 2049 (NFS) aberta para o Backend
   EFSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow NFS access from App Tier
-      VpcId:
-        Ref: VpcId
+      VpcId: { Ref: VpcId }
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 2049
           ToPort: 2049
-          SourceSecurityGroupId:
-            Ref: AppSecurityGroupId
+          SourceSecurityGroupId: { Ref: AppSecurityGroupId }
       Tags:
         - Key: Name
-          Value:
-            Fn::Sub: "${ProjectName}-${Environment}-efs-sg"
+          Value: { Fn::Sub: "${ProjectName}-${Environment}-efs-sg" }
 
-  ############################
-  # EFS FILE SYSTEM
-  ############################
-
+  # 2. Sistema de Arquivos: Criptografado para produção
   FileSystem:
     Type: AWS::EFS::FileSystem
     Properties:
       Encrypted: true
       PerformanceMode: generalPurpose
       ThroughputMode: bursting
+      BackupPolicy: { Status: ENABLED } # Adicionado para segurança de dados séria
       FileSystemTags:
         - Key: Name
-          Value:
-            Fn::Sub: "${ProjectName}-${Environment}-efs"
+          Value: { Fn::Sub: "${ProjectName}-${Environment}-efs" }
 
- ############################
-  # MOUNT TARGETS
-  ############################
-
+  # 3. Mount Targets: Criados em cada AZ para alta disponibilidade
   MountTargetAZ1:
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: { Ref: FileSystem }
       SubnetId: { Fn::Select: [ 0, { Ref: PrivateAppSubnets } ] }
-      SecurityGroups:
-        - { Ref: EFSSecurityGroup }
+      SecurityGroups: [{ Ref: EFSSecurityGroup }]
 
   MountTargetAZ2:
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: { Ref: FileSystem }
       SubnetId: { Fn::Select: [ 1, { Ref: PrivateAppSubnets } ] }
-      SecurityGroups:
-        - { Ref: EFSSecurityGroup }
+      SecurityGroups: [{ Ref: EFSSecurityGroup }]
 
 Outputs:
   FileSystemId:

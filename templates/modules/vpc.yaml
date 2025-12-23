@@ -1,22 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC with public and private subnets in two AZs
+Description: VPC Infrastructure - Public and Private Subnets across 2 AZs
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues:
-      - dev
-      - prod
-
-  ProjectName:
-    Type: String
+  Environment: { Type: String, AllowedValues: [dev, prod] }
+  ProjectName: { Type: String }
 
 Resources:
-
-  ########################
-  # VPC
-  ########################
-
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -25,289 +14,144 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value:
-            Fn::Sub: "${ProjectName}-${Environment}-vpc"
-
-  ########################
-  # INTERNET GATEWAY
-  ########################
+          Value: !Sub "${ProjectName}-${Environment}-vpc"
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-igw"
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId:
-        Ref: VPC
-      InternetGatewayId:
-        Ref: InternetGateway
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
 
-  ########################
-  # PUBLIC SUBNETS
-  ########################
-
+  # --- Subnets ---
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
       CidrBlock: 10.0.1.0/24
       MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-az1" }]
 
   PublicSubnetAZ2:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
       CidrBlock: 10.0.2.0/24
       MapPublicIpOnLaunch: true
-
-  ########################
-  # PRIVATE SUBNETS - WEB
-  ########################
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-az2" }]
 
   PrivateWebAZ1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
       CidrBlock: 10.0.11.0/24
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-web-az1" }]
 
   PrivateWebAZ2:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
       CidrBlock: 10.0.12.0/24
-
-  ########################
-  # PRIVATE SUBNETS - APP
-  ########################
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-web-az2" }]
 
   PrivateAppAZ1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
       CidrBlock: 10.0.21.0/24
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az1" }]
 
   PrivateAppAZ2:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
       CidrBlock: 10.0.22.0/24
-
-  ########################
-  # PRIVATE SUBNETS - DB
-  ########################
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az2" }]
 
   PrivateDbAZ1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
       CidrBlock: 10.0.31.0/24
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-db-az1" }]
 
   PrivateDbAZ2:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId:
-        Ref: VPC
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: ""
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
       CidrBlock: 10.0.32.0/24
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-db-az2" }]
 
-  ########################
-  # ROUTE TABLE - PUBLIC
-  ########################
+  # --- NAT Gateway ---
+  NatEIP:
+    Type: AWS::EC2::EIP
+    Properties: { Domain: vpc }
 
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP.AllocationId
+      SubnetId: !Ref PublicSubnetAZ1
+
+  # --- Route Tables ---
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId:
-        Ref: VPC
+      VpcId: !Ref VPC
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-rt" }]
 
   PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
-      RouteTableId:
-        Ref: PublicRouteTable
+      RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId:
-        Ref: InternetGateway
-
-  PublicSubnetAZ1Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PublicSubnetAZ1
-      RouteTableId:
-        Ref: PublicRouteTable
-
-  PublicSubnetAZ2Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PublicSubnetAZ2
-      RouteTableId:
-        Ref: PublicRouteTable
-
-  ########################
-  # NAT GATEWAY
-  ########################
-
-  NatEIP:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  NatGateway:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId:
-        Fn::GetAtt:
-          - NatEIP
-          - AllocationId
-      SubnetId:
-        Ref: PublicSubnetAZ1
-
-  ########################
-  # ROUTE TABLE - PRIVATE
-  ########################
+      GatewayId: !Ref InternetGateway
 
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId:
-        Ref: VPC
+      VpcId: !Ref VPC
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-rt" }]
 
   PrivateRoute:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId:
-        Ref: PrivateRouteTable
+      RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId:
-        Ref: NatGateway
+      NatGatewayId: !Ref NatGateway
 
-  PrivateWebAZ1Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateWebAZ1
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-  PrivateWebAZ2Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateWebAZ2
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-  PrivateAppAZ1Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateAppAZ1
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-  PrivateAppAZ2Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateAppAZ2
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-  PrivateDbAZ1Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateDbAZ1
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-  PrivateDbAZ2Association:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId:
-        Ref: PrivateDbAZ2
-      RouteTableId:
-        Ref: PrivateRouteTable
-
-########################
-# OUTPUTS (IMPORTANTÍSSIMO)
-########################
+  # --- Associations ---
+  PubAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ1, RouteTableId: !Ref PublicRouteTable } }
+  PubAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ2, RouteTableId: !Ref PublicRouteTable } }
+  WebAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateWebAZ1, RouteTableId: !Ref PrivateRouteTable } }
+  WebAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateWebAZ2, RouteTableId: !Ref PrivateRouteTable } }
+  AppAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateAppAZ1, RouteTableId: !Ref PrivateRouteTable } }
+  AppAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateAppAZ2, RouteTableId: !Ref PrivateRouteTable } }
+  DbAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateDbAZ1, RouteTableId: !Ref PrivateRouteTable } }
+  DbAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateDbAZ2, RouteTableId: !Ref PrivateRouteTable } }
 
 Outputs:
-  VpcId:
-    Value:
-      Ref: VPC
-
-  PublicSubnetAZ1:
-    Value:
-      Ref: PublicSubnetAZ1
-
-  PublicSubnetAZ2:
-    Value:
-      Ref: PublicSubnetAZ2
-
-  PrivateWebSubnetAZ1:
-    Value:
-      Ref: PrivateWebAZ1
-
-  PrivateWebSubnetAZ2:
-    Value:
-      Ref: PrivateWebAZ2
-
-  PrivateAppSubnetAZ1:
-    Value:
-      Ref: PrivateAppAZ1
-
-  PrivateAppSubnetAZ2:
-    Value:
-      Ref: PrivateAppAZ2
-
-  PrivateDbSubnetAZ1:
-    Value:
-      Ref: PrivateDbAZ1
-
-  PrivateDbSubnetAZ2:
-    Value:
-      Ref: PrivateDbAZ2
+  VpcId: { Value: !Ref VPC }
+  PublicSubnetAZ1: { Value: !Ref PublicSubnetAZ1 }
+  PublicSubnetAZ2: { Value: !Ref PublicSubnetAZ2 }
+  PrivateWebSubnetAZ1: { Value: !Ref PrivateWebAZ1 }
+  PrivateWebSubnetAZ2: { Value: !Ref PrivateWebAZ2 }
+  PrivateAppSubnetAZ1: { Value: !Ref PrivateAppAZ1 }
+  PrivateAppSubnetAZ2: { Value: !Ref PrivateAppAZ2 }
+  PrivateDbSubnetAZ1: { Value: !Ref PrivateDbAZ1 }
+  PrivateDbSubnetAZ2: { Value: !Ref PrivateDbAZ2 }

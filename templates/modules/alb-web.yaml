@@ -1,115 +1,63 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Public Application Load Balancer for Web Tier
+Description: Módulo Load Balancer Web (ALB) - Configuração de Tráfego HTTPS
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues:
-      - dev
-      - prod
-
-  ProjectName:
-    Type: String
-
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-
-  PublicSubnets:
-    Type: List<AWS::EC2::Subnet::Id>
+  Environment: { Type: String }
+  ProjectName: { Type: String }
+  VpcId: { Type: AWS::EC2::VPC::Id }
+  PublicSubnets: { Type: List<AWS::EC2::Subnet::Id> }
+  ALBWebSecurityGroupId: { Type: String }
 
 Resources:
-
-  ############################
-  # SECURITY GROUP
-  ############################
-  ALBWebSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow HTTP/HTTPS from Internet
-      VpcId:
-        Ref: VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: "${ProjectName}-${Environment}-alb-web-sg"
-
-  ############################
-  # LOAD BALANCER
-  ############################
   ALBWeb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name:
-        Fn::Sub: "${ProjectName}-${Environment}-alb-web"
+      Name: !Sub "${ProjectName}-${Environment}-alb-web"
+      Subnets: !Ref PublicSubnets
+      SecurityGroups: 
+        - !Ref ALBWebSecurityGroupId
       Scheme: internet-facing
-      Type: application
-      IpAddressType: ipv4
-      Subnets:
-        Ref: PublicSubnets
-      SecurityGroups:
-        - Ref: ALBWebSecurityGroup
-      Tags:
-        - Key: Environment
-          Value:
-            Ref: Environment
 
-  ############################
-  # TARGET GROUP
-  ############################
   WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name:
-        Fn::Sub: "${ProjectName}-${Environment}-tg-web"
+      VpcId: !Ref VpcId
       Port: 80
       Protocol: HTTP
-      VpcId:
-        Ref: VpcId
       TargetType: instance
       HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      Matcher:
-        HttpCode: "200"
 
-  ############################
-  # LISTENER HTTP
-  ############################
-  ALBWebListenerHTTP:
+  ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn:
-        Ref: ALBWeb
+      LoadBalancerArn: !Ref ALBWeb
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !ImportValue 
+            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALBWeb
       Port: 80
       Protocol: HTTP
       DefaultActions:
-        - Type: forward
-          TargetGroupArn:
-            Ref: WebTargetGroup
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
 
 Outputs:
-
   ALBWebDNS:
-    Description: DNS name of the public ALB
-    Value:
-      Fn::GetAtt:
-        - ALBWeb
-        - DNSName
-
+    Value: !GetAtt ALBWeb.DNSName
+  ALBHostedZoneId:
+    Value: !GetAtt ALBWeb.CanonicalHostedZoneID
+  # SIM: Esta é a peça que faltava para o Master funcionar
   WebTargetGroupArn:
-    Description: Target Group ARN for Web ASG
-    Value:
-      Ref: WebTargetGroup
-
-  ALBWebSecurityGroupId:
-    Description: Security Group ID of ALB Web
-    Value:
-      Ref: ALBWebSecurityGroup
+    Value: !Ref WebTargetGroup
