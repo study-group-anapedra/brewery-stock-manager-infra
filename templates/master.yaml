@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada (ACM Independente via GitHub Actions)
+Description: Master Stack - Infraestrutura Stock Manager (Bucket: stock-manager-prod-artifacts)
 
 Parameters:
   Environment: { Type: String, AllowedValues: [dev, prod] }
@@ -22,7 +22,7 @@ Resources:
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: modules/vpc.yaml
+      TemplateURL: ./modules/vpc.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -30,19 +30,20 @@ Resources:
   # 2. Segurança (Security Groups)
   SecurityStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: VPCStack
     Properties:
-      TemplateURL: modules/security-groups.yaml
+      TemplateURL: ./modules/security-groups.yaml
       Parameters:
         VpcId: !GetAtt VPCStack.Outputs.VpcId
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
   # 3. Load Balancer Web (ALB Externo)
-  # Nota: Utiliza o certificado SSL gerenciado de forma independente pelo pipeline
   ALBWebStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
     Properties:
-      TemplateURL: modules/alb-web.yaml
+      TemplateURL: ./modules/alb-web.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -53,8 +54,9 @@ Resources:
   # 4. Auto Scaling Web (Frontend)
   ASGWebStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: ALBWebStack
     Properties:
-      TemplateURL: modules/asg-web.yaml
+      TemplateURL: ./modules/asg-web.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -69,8 +71,9 @@ Resources:
   # 5. Load Balancer App (Backend Interno)
   ALBAppStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
     Properties:
-      TemplateURL: modules/alb-app.yaml
+      TemplateURL: ./modules/alb-app.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -81,24 +84,25 @@ Resources:
   # 6. Auto Scaling App (Java Backend)
   ASGAppStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: ALBAppStack
     Properties:
-      TemplateURL: modules/asg-app.yaml
+      TemplateURL: ./modules/asg-app.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppTargetGroupArn: !GetAtt ALBAppStack.Outputs.AppTargetGroupArn
-        ALBAppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
         InstanceType: !Ref AppInstanceType
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
-  # 7. Banco de Dados (RDS MySQL/PostgreSQL)
+  # 7. Banco de Dados (RDS MySQL)
   RDSStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
     Properties:
-      TemplateURL: modules/rds.yaml
+      TemplateURL: ./modules/rds.yaml
       Parameters:
         Environment: !Ref Environment
         VpcId: !GetAtt VPCStack.Outputs.VpcId
@@ -110,11 +114,12 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # 8. Cache de Sessão e Performance (Redis)
+  # 8. Cache de Sessão (Redis)
   RedisStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
     Properties:
-      TemplateURL: modules/elasticache.yaml
+      TemplateURL: ./modules/elasticache.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -122,11 +127,12 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
-  # 9. Sistema de Arquivos Compartilhado (EFS)
+  # 9. Sistema de Arquivos (EFS)
   EFSStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
     Properties:
-      TemplateURL: modules/efs.yaml
+      TemplateURL: ./modules/efs.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -134,11 +140,12 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
-  # 10. Camada de Borda e Cache (CloudFront)
+  # 10. Camada de Borda (CloudFront)
   EdgeStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: ALBWebStack
     Properties:
-      TemplateURL: modules/edge.yaml
+      TemplateURL: ./modules/edge.yaml
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
@@ -150,8 +157,9 @@ Resources:
   # 11. DNS e Roteamento (Route 53)
   Route53Stack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: EdgeStack
     Properties:
-      TemplateURL: modules/route53.yaml
+      TemplateURL: ./modules/route53.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
