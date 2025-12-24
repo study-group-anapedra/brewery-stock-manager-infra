@@ -15,25 +15,25 @@ jobs:
       AWS_REGION: us-east-1
       S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
+      # Centralizamos as variáveis para evitar erros de digitação
+      HOSTED_ZONE_ID: Z0620408R15AZPT367P2
+      DOMAIN_NAME: asantanadev.com
 
     steps:
-      #  Checkout do repositório
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      #  Configurar credenciais AWS via OIDC
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      #  Sincronizar módulos no S3
       - name: Upload Modules to S3
         run: |
           aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-      #  Deploy ACM (deve vir primeiro)
+      # 1. Deploy do Certificado (ACM)
       - name: Deploy ACM Module
         run: |
           aws cloudformation deploy \
@@ -42,11 +42,10 @@ jobs:
             --parameter-overrides \
               ProjectName=stock-manager \
               Environment=dev \
-              DomainName=asantanadev.com \
-              HostedZoneId=Z0620408R15AZPT367P2
+              DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID }}
 
-
-      # Esperar validação do certificado ACM
+      # 2. Espera a validação DNS automática do ACM
       - name: Wait ACM Validation
         run: |
           CERT_ARN=$(aws cloudformation describe-stacks \
@@ -57,19 +56,7 @@ jobs:
           aws acm wait certificate-validated --certificate-arn $CERT_ARN
           echo "ACM certificate validated: $CERT_ARN"
 
-      #  Espera o certificado ACM ser validado antes de continuar
-      - name: Wait ACM Validation
-        run: |
-          CERT_ARN=$(aws cloudformation describe-stacks \
-            --stack-name stock-manager-acm-dev \
-            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
-            --output text)
-          echo "Waiting for ACM certificate validation..."
-          aws acm wait certificate-validated --certificate-arn $CERT_ARN
-          echo "ACM certificate validated: $CERT_ARN"
-    
-
-      # Empacotar master stack
+      # 3. Empacota a Master Stack (sobe os templates para o S3)
       - name: CloudFormation Package
         run: |
           aws cloudformation package \
@@ -77,9 +64,15 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
-      #  Deploy master stack
+      # 4. Deploy da Infraestrutura Completa (Master Stack)
       - name: Deploy Master Stack
         run: |
+          # Capturamos o ARN do certificado gerado no passo 1
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name stock-manager-acm-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+            --output text)
+
           aws cloudformation deploy \
             --template-file packaged-master.yaml \
             --stack-name ${{ env.STACK_NAME }} \
@@ -87,8 +80,9 @@ jobs:
             --parameter-overrides \
               Environment=dev \
               ProjectName=stock-manager \
-              DomainName=asantanadev.com \
-              HostedZoneId=Z0620408R2C0W7F3G8S7 \
+              DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID }} \
+              CertificateARN=$CERT_ARN \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-dev \
               DBUsername="${{ secrets.DB_USERNAME }}" \
@@ -97,11 +91,11 @@ jobs:
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
       
-      #  Notificação em caso de falha
+      # 5. Notificação de Alerta (SNS)
       - name: Notify Failure
-        if: failure() # Só executa se o job falhar
+        if: failure()
         run: |
           aws sns publish \
             --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
             --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
-            --message "O deploy da infraestrutura falhou na branch main. Verifique os logs no GitHub Actions."        
+            --message "O deploy falhou. Verifique se a Stack acm-dev foi deletada antes de tentar novamente."
