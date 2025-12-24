@@ -1,16 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Edge Layer - CloudFront, S3, WAF e Integração com Certificado Importado
+Description: Edge Layer - CloudFront, S3, WAF e Certificado via ImportValue
 
 Parameters:
   Environment: { Type: String }
   ProjectName: { Type: String }
   DomainName: { Type: String }
   HostedZoneId: { Type: String }
-  # Removido CertificateARN manual para usar !ImportValue
   ALBDomainName: { Type: String }
 
 Resources:
-  # --- Armazenamento Estático (S3) ---
   StaticContentBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -21,7 +19,6 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # --- Controle de Acesso S3 (OAC) ---
   CloudFrontOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -31,7 +28,6 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
-  # --- Proteção WAF (CloudFront) ---
   WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
@@ -55,14 +51,12 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: common
 
-  # --- Distribuição CloudFront ---
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Enabled: true
-        Aliases: 
-          - !Ref DomainName
+        Aliases: [ !Ref DomainName ]
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt StaticContentBucket.RegionalDomainName
@@ -70,7 +64,7 @@ Resources:
           - Id: ALBOrigin
             DomainName: !Ref ALBDomainName
             CustomOriginConfig:
-              OriginProtocolPolicy: https-only 
+              OriginProtocolPolicy: https-only
         DefaultCacheBehavior:
           TargetOriginId: ALBOrigin
           ViewerProtocolPolicy: redirect-to-https
@@ -80,8 +74,7 @@ Resources:
             QueryString: true
             Cookies: { Forward: all }
         ViewerCertificate:
-          # SIM: Agora importa o certificado criado na região us-east-1
-          AcmCertificateArn: !ImportValue 
+          AcmCertificateArn: !ImportValue
             Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
