@@ -1,12 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada (11 Módulos) - Corrigida
+Description: Master Stack - Infraestrutura Gerenciada (11 Módulos)
 
 Parameters:
   Environment: { Type: String, AllowedValues: [dev, prod] }
   ProjectName: { Type: String }
   DomainName: { Type: String }
   HostedZoneId: { Type: String }
-  CertificateARN: { Type: String } # Adicionado para alimentar o EdgeStack
   LatestAMIId: { Type: AWS::EC2::Image::Id }
   KeyName: { Type: AWS::EC2::KeyPair::KeyName }
   WebInstanceType: { Type: String, Default: t3.micro }
@@ -116,7 +115,6 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        # Ajustado para Join (String) para combinar com a correção do módulo
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
@@ -129,7 +127,6 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        # Ajustado para Join (String) para combinar com a correção do módulo
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
@@ -143,7 +140,6 @@ Resources:
         ProjectName: !Ref ProjectName
         DomainName: !Ref DomainName
         HostedZoneId: !Ref HostedZoneId
-        CertificateARN: !Ref CertificateARN # Adicionado
         ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
 
   Route53Stack:
