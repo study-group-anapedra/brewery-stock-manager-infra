@@ -1,19 +1,51 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Master Stack - Infraestrutura Stock Manager - Bucket stock-manager-prod-artifacts"
+
 Parameters:
-  Environment: { Type: String, AllowedValues: [dev, prod] }
-  ProjectName: { Type: String }
-  DomainName: { Type: String }
-  HostedZoneId: { Type: String }
-  CertificateARN: { Type: String }
-  LatestAMIId: { Type: AWS::EC2::Image::Id }
-  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
-  WebInstanceType: { Type: String, Default: t3.micro }
-  AppInstanceType: { Type: String, Default: t3.small }
-  DBInstanceClass: { Type: String, Default: db.t3.micro }
-  DBName: { Type: String, Default: stockmanager }
-  DBUsername: { Type: String }
-  DBPassword: { Type: String, NoEcho: true }
+  Environment:
+    Type: String
+    AllowedValues: [dev, prod]
+
+  ProjectName:
+    Type: String
+
+  DomainName:
+    Type: String
+
+  HostedZoneId:
+    Type: String
+
+  CertificateARN:
+    Type: String
+
+  LatestAMIId:
+    Type: AWS::EC2::Image::Id
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  WebInstanceType:
+    Type: String
+    Default: t3.micro
+
+  AppInstanceType:
+    Type: String
+    Default: t3.small
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+
+  DBName:
+    Type: String
+    Default: stockmanager
+
+  DBUsername:
+    Type: String
+
+  DBPassword:
+    Type: String
+    NoEcho: true
 
 Resources:
 
@@ -47,7 +79,10 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
+        PublicSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PublicSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PublicSubnetAZ2
         ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
 
   # 4. Auto Scaling Web (Frontend)
@@ -60,7 +95,10 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateWebSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateWebSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ2]]
+        PrivateWebSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ2
         WebTargetGroupArn: !GetAtt ALBWebStack.Outputs.WebTargetGroupArn
         ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
         InstanceType: !Ref WebInstanceType
@@ -77,7 +115,10 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
+        PrivateAppSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
         WebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
 
   # 6. Auto Scaling App (Java Backend)
@@ -90,13 +131,16 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
+        PrivateAppSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
         AppTargetGroupArn: !GetAtt ALBAppStack.Outputs.AppTargetGroupArn
         InstanceType: !Ref AppInstanceType
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
-  # 7. Banco de Dados (RDS MySQL)
+  # 7. Banco de Dados (RDS)
   RDSStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -113,7 +157,7 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # 8. Cache de Sessão (Redis)
+  # 8. Cache (Redis)
   RedisStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -123,7 +167,10 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
+        PrivateAppSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
   # 9. Sistema de Arquivos (EFS)
@@ -136,10 +183,13 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
+        PrivateAppSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
-  # 10. Camada de Borda (CloudFront)
+  # 10. CloudFront (Edge)
   EdgeStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBWebStack
@@ -150,10 +200,10 @@ Resources:
         ProjectName: !Ref ProjectName
         DomainName: !Ref DomainName
         HostedZoneId: !Ref HostedZoneId
-        CertificateARN: !Ref CertificateARN 
+        CertificateARN: !Ref CertificateARN
         ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
 
-  # 11. DNS e Roteamento (Route 53)
+  # 11. DNS (Route 53)
   Route53Stack:
     Type: AWS::CloudFormation::Stack
     DependsOn: EdgeStack
