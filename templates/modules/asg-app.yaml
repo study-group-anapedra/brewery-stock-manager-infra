@@ -1,68 +1,50 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo Load Balancer Web (ALB) - Conexão via ImportValue com ACM
+Description: Backend Layer - Auto Scaling Group para Java App
 
 Parameters:
   Environment: { Type: String }
   ProjectName: { Type: String }
-  VpcId: { Type: AWS::EC2::VPC::Id }
-  PublicSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  ALBWebSecurityGroupId: { Type: String }
+  VpcId: { Type: String }
+  PrivateAppSubnets: { Type: List<AWS::EC2::Subnet::Id> }
+  AppTargetGroupArn: { Type: String }
+  InstanceType: { Type: String } # Adicionado para corrigir E3043
+  LatestAMIId: { Type: AWS::EC2::Image::Id }
+  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
 
 Resources:
-  # --- Load Balancer Público ---
-  ALBWeb:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      Name: !Sub "${ProjectName}-${Environment}-alb-web"
-      Subnets: !Ref PublicSubnets
-      SecurityGroups: 
-        - !Ref ALBWebSecurityGroupId
-      Scheme: internet-facing
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-launch-template"
+      LaunchTemplateData:
+        ImageId: !Ref LatestAMIId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        # Security Groups devem ser passados aqui via IDs
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "${ProjectName}-${Environment}-app-instance"
 
-  # --- Grupo de Destino (Para o Auto Scaling Web) ---
-  WebTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  AppAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      VpcId: !Ref VpcId
-      Port: 80
-      Protocol: HTTP
-      TargetType: instance
-      HealthCheckPath: /
-
-  # --- Listener HTTPS (Porta 443) ---
-  ListenerHTTPS:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ALBWeb
-      Port: 443
-      Protocol: HTTPS
-      Certificates:
-        # SIM: Aqui buscamos o certificado que o módulo ACM exportou
-        - CertificateArn: !ImportValue 
-            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref WebTargetGroup
-
-  # --- Listener HTTP (Porta 80) - Redireciona para HTTPS ---
-  ListenerHTTP:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ALBWeb
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: redirect
-          RedirectConfig:
-            Protocol: HTTPS
-            Port: "443"
-            StatusCode: HTTP_301
+      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-app-asg"
+      VPCZoneIdentifier: !Ref PrivateAppSubnets
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      MinSize: "1"
+      MaxSize: "3"
+      DesiredCapacity: "1"
+      TargetGroupARNs:
+        - !Ref AppTargetGroupArn
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-app-asg"
+          PropagateAtLaunch: true
 
 Outputs:
-  ALBWebDNS:
-    Value: !GetAtt ALBWeb.DNSName
-  ALBHostedZoneId:
-    Value: !GetAtt ALBWeb.CanonicalHostedZoneID
-  # SIM: Essencial para o Master entregar este valor ao ASG Web
-  WebTargetGroupArn:
-    Value: !Ref WebTargetGroup
+  AppAsgName:
+    Value: !Ref AppAsg
