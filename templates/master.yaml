@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Stock Manager (Bucket: stock-manager-prod-artifacts)
-
+Description: "Master Stack - Infraestrutura Stock Manager - Bucket stock-manager-prod-artifacts"
 Parameters:
   Environment: { Type: String, AllowedValues: [dev, prod] }
   ProjectName: { Type: String }
