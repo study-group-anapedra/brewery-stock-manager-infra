@@ -2,21 +2,29 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Módulo Load Balancer Web (ALB) - Configuração de Tráfego HTTPS
 
 Parameters:
-  Environment: { Type: String }
-  ProjectName: { Type: String }
-  VpcId: { Type: AWS::EC2::VPC::Id }
-  PublicSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  ALBWebSecurityGroupId: { Type: String }
+  Environment:
+    Type: String
+  ProjectName:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnets:
+    Type: String
+
+  ALBWebSecurityGroupId:
+    Type: String
 
 Resources:
   ALBWeb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-alb-web"
-      Subnets: !Ref PublicSubnets
-      SecurityGroups: 
-        - !Ref ALBWebSecurityGroupId
       Scheme: internet-facing
+      Type: application
+      Subnets: !Split [",", !Ref PublicSubnets]
+      SecurityGroups:
+        - !Ref ALBWebSecurityGroupId
 
   WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -34,7 +42,7 @@ Resources:
       Port: 443
       Protocol: HTTPS
       Certificates:
-        - CertificateArn: !ImportValue 
+        - CertificateArn: !ImportValue
             Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
       DefaultActions:
         - Type: forward
@@ -56,8 +64,9 @@ Resources:
 Outputs:
   ALBWebDNS:
     Value: !GetAtt ALBWeb.DNSName
+
   ALBHostedZoneId:
     Value: !GetAtt ALBWeb.CanonicalHostedZoneID
-  # SIM: Esta é a peça que faltava para o Master funcionar
+
   WebTargetGroupArn:
     Value: !Ref WebTargetGroup
