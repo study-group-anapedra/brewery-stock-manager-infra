@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada (11 Módulos) - Versão Final
+Description: Master Stack - Infraestrutura Gerenciada (11 Módulos) - Versão Final Corrigida
 
 Parameters:
   Environment: { Type: String, AllowedValues: [dev, prod] }
   ProjectName: { Type: String }
   DomainName: { Type: String }
   HostedZoneId: { Type: String }
-  CertificateARN: { Type: String } # Adicionado para evitar erro E3043
+  CertificateARN: { Type: String }
   LatestAMIId: { Type: AWS::EC2::Image::Id }
   KeyName: { Type: AWS::EC2::KeyPair::KeyName }
   WebInstanceType: { Type: String, Default: t3.micro }
@@ -50,7 +50,7 @@ Resources:
         VpcId: !GetAtt VPCStack.Outputs.VpcId
         PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
         ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
-        CertificateArn: !Ref CertificateARN # Passando o parâmetro em vez de ImportValue
+        CertificateArn: !Ref CertificateARN
 
   # 4. Auto Scaling Web (Frontend)
   ASGWebStack:
@@ -98,10 +98,12 @@ Resources:
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
-  # 7. Banco de Dados (RDS)
+  # 7. Banco de Dados (RDS) - CORRIGIDO
   RDSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: [SecurityStack, VPCStack]
+    DependsOn: 
+      - SecurityStack
+      - VPCStack
     Properties:
       TemplateURL: ./modules/rds.yaml
       Parameters:
@@ -115,10 +117,12 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # 8. Cache (ElastiCache Redis)
+  # 8. Cache (ElastiCache Redis) - CORRIGIDO
   RedisStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: [SecurityStack, VPCStack]
+    DependsOn: 
+      - SecurityStack
+      - VPCStack
     Properties:
       TemplateURL: ./modules/elasticache.yaml
       Parameters:
@@ -128,10 +132,12 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
-  # 9. Armazenamento de Arquivos (EFS)
+  # 9. Armazenamento de Arquivos (EFS) - CORRIGIDO
   EFSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: [SecurityStack, VPCStack]
+    DependsOn: 
+      - SecurityStack
+      - VPCStack
     Properties:
       TemplateURL: ./modules/efs.yaml
       Parameters:
