@@ -15,7 +15,6 @@ jobs:
       AWS_REGION: us-east-1
       S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
-      # Centralizamos as variáveis para evitar erros de digitação
       HOSTED_ZONE_ID: Z0620408R15AZPT367P2
       DOMAIN_NAME: asantanadev.com
 
@@ -33,7 +32,6 @@ jobs:
         run: |
           aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-      # 1. Deploy do Certificado (ACM)
       - name: Deploy ACM Module
         run: |
           aws cloudformation deploy \
@@ -45,18 +43,27 @@ jobs:
               DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=${{ env.HOSTED_ZONE_ID }}
 
-      # 2. Espera a validação DNS automática do ACM
       - name: Wait ACM Validation
         run: |
-          CERT_ARN=$(aws cloudformation describe-stacks \
-            --stack-name stock-manager-acm-dev \
-            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
-            --output text)
-          echo "Waiting for ACM certificate validation..."
-          aws acm wait certificate-validated --certificate-arn $CERT_ARN
-          echo "ACM certificate validated: $CERT_ARN"
+          # Tentativas repetidas para garantir que o Output esteja disponível
+          for i in {1..5}; do
+            CERT_ARN=$(aws cloudformation describe-stacks \
+              --stack-name stock-manager-acm-dev \
+              --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+              --output text)
+            if [ "$CERT_ARN" != "None" ] && [ -n "$CERT_ARN" ]; then break; fi
+            echo "Aguardando Outputs da stack... tentativa $i"
+            sleep 10
+          done
 
-      # 3. Empacota a Master Stack (sobe os templates para o S3)
+          if [ -z "$CERT_ARN" ] || [ "$CERT_ARN" == "None" ]; then
+            echo "Erro: Não foi possível obter o ARN do certificado."
+            exit 1
+          fi
+
+          echo "Validando certificado: $CERT_ARN"
+          aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
+
       - name: CloudFormation Package
         run: |
           aws cloudformation package \
@@ -64,10 +71,8 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
-      # 4. Deploy da Infraestrutura Completa (Master Stack)
       - name: Deploy Master Stack
         run: |
-          # Capturamos o ARN do certificado gerado no passo 1
           CERT_ARN=$(aws cloudformation describe-stacks \
             --stack-name stock-manager-acm-dev \
             --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
@@ -82,7 +87,7 @@ jobs:
               ProjectName=stock-manager \
               DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=${{ env.HOSTED_ZONE_ID }} \
-              CertificateARN=$CERT_ARN \
+              CertificateARN="$CERT_ARN" \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-dev \
               DBUsername="${{ secrets.DB_USERNAME }}" \
@@ -90,12 +95,11 @@ jobs:
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
-      
-      # 5. Notificação de Alerta (SNS)
+
       - name: Notify Failure
         if: failure()
         run: |
           aws sns publish \
             --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
             --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
-            --message "O deploy falhou. Verifique se a Stack acm-dev foi deletada antes de tentar novamente."
+            --message "O deploy falhou no passo de validação ou na Master Stack. Verifique os eventos do CloudFormation."
