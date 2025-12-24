@@ -10,60 +10,76 @@ permissions:
 
 jobs:
   deploy:
+    name: Deploy CloudFormation Master Stack
     runs-on: ubuntu-latest
+
     env:
       AWS_REGION: us-east-1
       S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
       HOSTED_ZONE_ID: Z0620408R15AZPT367P2
       DOMAIN_NAME: asantanadev.com
+      ENVIRONMENT: dev
+      PROJECT_NAME: stock-manager
 
     steps:
+      # Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # AWS Credentials via OIDC
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Upload módulos para S3
       - name: Upload Modules to S3
         run: |
           aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
+      # Deploy ACM (certificado)
       - name: Deploy ACM Module
         run: |
           aws cloudformation deploy \
             --template-file templates/modules/acm.yaml \
             --stack-name stock-manager-acm-dev \
+            --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
-              ProjectName=stock-manager \
-              Environment=dev \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              Environment=${{ env.ENVIRONMENT }} \
               DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=${{ env.HOSTED_ZONE_ID }}
 
+      #  Esperar validação do certificado
       - name: Wait ACM Validation
         run: |
-          # Tentativas repetidas para garantir que o Output esteja disponível
-          for i in {1..5}; do
+          echo "Obtendo ARN do certificado..."
+
+          for i in {1..10}; do
             CERT_ARN=$(aws cloudformation describe-stacks \
               --stack-name stock-manager-acm-dev \
               --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
               --output text)
-            if [ "$CERT_ARN" != "None" ] && [ -n "$CERT_ARN" ]; then break; fi
-            echo "Aguardando Outputs da stack... tentativa $i"
-            sleep 10
+
+            if [ -n "$CERT_ARN" ] && [ "$CERT_ARN" != "None" ]; then
+              break
+            fi
+
+            echo "Aguardando CertificateARN... tentativa $i"
+            sleep 15
           done
 
-          if [ -z "$CERT_ARN" ] || [ "$CERT_ARN" == "None" ]; then
-            echo "Erro: Não foi possível obter o ARN do certificado."
+          if [ -z "$CERT_ARN" ] || [ "$CERT_ARN" = "None" ]; then
+            echo "Erro: CertificateARN não encontrado."
             exit 1
           fi
 
-          echo "Validando certificado: $CERT_ARN"
+          echo "Aguardando validação do certificado: $CERT_ARN"
           aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
 
+      # Package da Master Stack
       - name: CloudFormation Package
         run: |
           aws cloudformation package \
@@ -71,6 +87,7 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
+      # Deploy da Master Stack
       - name: Deploy Master Stack
         run: |
           CERT_ARN=$(aws cloudformation describe-stacks \
@@ -83,8 +100,8 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
-              Environment=dev \
-              ProjectName=stock-manager \
+              Environment=${{ env.ENVIRONMENT }} \
+              ProjectName=${{ env.PROJECT_NAME }} \
               DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=${{ env.HOSTED_ZONE_ID }} \
               CertificateARN="$CERT_ARN" \
@@ -96,10 +113,23 @@ jobs:
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
 
+      # Esperar FINALIZAÇÃO COMPLETA da Master Stack (e nested stacks)
+      - name: Wait Master Stack Completion
+        run: |
+          echo "Aguardando Master Stack finalizar..."
+
+          aws cloudformation wait stack-create-complete \
+            --stack-name ${{ env.STACK_NAME }} \
+          || aws cloudformation wait stack-update-complete \
+            --stack-name ${{ env.STACK_NAME }}
+
+          echo "Master Stack criada/atualizada com sucesso!"
+
+      # Notificação de falha
       - name: Notify Failure
         if: failure()
         run: |
           aws sns publish \
             --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
             --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
-            --message "O deploy falhou no passo de validação ou na Master Stack. Verifique os eventos do CloudFormation."
+            --message "O deploy falhou. Verifique os eventos do CloudFormation e as nested stacks."
