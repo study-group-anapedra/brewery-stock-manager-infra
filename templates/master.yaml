@@ -1,11 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada (11 Módulos)
+Description: Master Stack - Infraestrutura Gerenciada (11 Módulos) - Versão Final
 
 Parameters:
   Environment: { Type: String, AllowedValues: [dev, prod] }
   ProjectName: { Type: String }
   DomainName: { Type: String }
   HostedZoneId: { Type: String }
+  CertificateARN: { Type: String } # Adicionado para evitar erro E3043
   LatestAMIId: { Type: AWS::EC2::Image::Id }
   KeyName: { Type: AWS::EC2::KeyPair::KeyName }
   WebInstanceType: { Type: String, Default: t3.micro }
@@ -17,6 +18,7 @@ Parameters:
 
 Resources:
 
+  # 1. Rede Base
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -25,6 +27,7 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
 
+  # 2. Segurança (SGs)
   SecurityStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VPCStack
@@ -35,6 +38,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  # 3. Load Balancer Web (ALB Web)
   ALBWebStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -46,7 +50,9 @@ Resources:
         VpcId: !GetAtt VPCStack.Outputs.VpcId
         PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
         ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
+        CertificateArn: !Ref CertificateARN # Passando o parâmetro em vez de ImportValue
 
+  # 4. Auto Scaling Web (Frontend)
   ASGWebStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBWebStack
@@ -63,6 +69,7 @@ Resources:
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
+  # 5. Load Balancer App (Internal ALB)
   ALBAppStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -75,6 +82,7 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         WebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
 
+  # 6. Auto Scaling App (Backend Java)
   ASGAppStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBAppStack
@@ -90,9 +98,10 @@ Resources:
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
+  # 7. Banco de Dados (RDS)
   RDSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
+    DependsOn: [SecurityStack, VPCStack]
     Properties:
       TemplateURL: ./modules/rds.yaml
       Parameters:
@@ -106,9 +115,10 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
+  # 8. Cache (ElastiCache Redis)
   RedisStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
+    DependsOn: [SecurityStack, VPCStack]
     Properties:
       TemplateURL: ./modules/elasticache.yaml
       Parameters:
@@ -118,9 +128,10 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
+  # 9. Armazenamento de Arquivos (EFS)
   EFSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
+    DependsOn: [SecurityStack, VPCStack]
     Properties:
       TemplateURL: ./modules/efs.yaml
       Parameters:
@@ -130,6 +141,7 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
+  # 10. Borda e CDN (CloudFront)
   EdgeStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBWebStack
@@ -140,8 +152,10 @@ Resources:
         ProjectName: !Ref ProjectName
         DomainName: !Ref DomainName
         HostedZoneId: !Ref HostedZoneId
+        CertificateARN: !Ref CertificateARN
         ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
 
+  # 11. DNS (Route 53)
   Route53Stack:
     Type: AWS::CloudFormation::Stack
     DependsOn: EdgeStack

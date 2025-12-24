@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Edge Layer - CloudFront, S3, WAF e Certificado via ImportValue
+Description: Edge Layer - CloudFront, S3, WAF e SSL via Parâmetro (Corrigido)
 
 Parameters:
   Environment: { Type: String }
@@ -7,6 +7,8 @@ Parameters:
   DomainName: { Type: String }
   HostedZoneId: { Type: String }
   ALBDomainName: { Type: String }
+  # CORREÇÃO: Adicionado para receber o ARN da Master Stack
+  CertificateARN: { Type: String }
 
 Resources:
   StaticContentBucket:
@@ -74,8 +76,8 @@ Resources:
             QueryString: true
             Cookies: { Forward: all }
         ViewerCertificate:
-          AcmCertificateArn: !ImportValue
-            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
+          # CORREÇÃO: Usando !Ref para receber o valor da Master
+          AcmCertificateArn: !Ref CertificateARN
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
         WebACLId: !GetAtt WebACL.Arn

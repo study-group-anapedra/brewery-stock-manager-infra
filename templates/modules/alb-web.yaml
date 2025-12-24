@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo Load Balancer Web (ALB) - Configuração de Tráfego HTTPS
+Description: Módulo Load Balancer Web (ALB) - Configuração de Tráfego HTTPS Corrigida
 
 Parameters:
   Environment:
@@ -8,11 +8,12 @@ Parameters:
     Type: String
   VpcId:
     Type: AWS::EC2::VPC::Id
-
   PublicSubnets:
     Type: String
-
   ALBWebSecurityGroupId:
+    Type: String
+  # NOVO: Recebe o ARN diretamente da Master Stack
+  CertificateArn:
     Type: String
 
 Resources:
@@ -34,6 +35,8 @@ Resources:
       Protocol: HTTP
       TargetType: instance
       HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
 
   ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -42,8 +45,8 @@ Resources:
       Port: 443
       Protocol: HTTPS
       Certificates:
-        - CertificateArn: !ImportValue
-            Fn::Sub: "${ProjectName}-${Environment}-CertificateArn"
+        # CORREÇÃO: Usa !Ref em vez de !ImportValue
+        - CertificateArn: !Ref CertificateArn
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref WebTargetGroup
@@ -64,9 +67,7 @@ Resources:
 Outputs:
   ALBWebDNS:
     Value: !GetAtt ALBWeb.DNSName
-
   ALBHostedZoneId:
     Value: !GetAtt ALBWeb.CanonicalHostedZoneID
-
   WebTargetGroupArn:
     Value: !Ref WebTargetGroup
