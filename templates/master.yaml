@@ -1,172 +1,96 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Stock Manager (Bucket: stock-manager-prod-artifacts)
+name: Deploy Master Infrastructure
 
-Parameters:
-  Environment: { Type: String, AllowedValues: [dev, prod] }
-  ProjectName: { Type: String }
-  DomainName: { Type: String }
-  HostedZoneId: { Type: String }
-  CertificateARN: { Type: String }
-  LatestAMIId: { Type: AWS::EC2::Image::Id }
-  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
-  WebInstanceType: { Type: String, Default: t3.micro }
-  AppInstanceType: { Type: String, Default: t3.small }
-  DBInstanceClass: { Type: String, Default: db.t3.micro }
-  DBName: { Type: String, Default: stockmanager }
-  DBUsername: { Type: String }
-  DBPassword: { Type: String, NoEcho: true }
+on:
+  push:
+    branches: [main]
 
-Resources:
+permissions:
+  id-token: write
+  contents: read
 
-  # 1. Rede (VPC e Subnets)
-  VPCStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: ./modules/vpc.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      S3_BUCKET: stock-manager-prod-artifacts
+      STACK_NAME: stock-manager-master-dev
+      HOSTED_ZONE_ID: Z0620408R15AZPT367P2 # ID da conta 3656
+      DOMAIN_NAME: asantanadev.com
 
-  # 2. Segurança (Security Groups)
-  SecurityStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: VPCStack
-    Properties:
-      TemplateURL: ./modules/security-groups.yaml
-      Parameters:
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  # 3. Load Balancer Web (ALB Externo)
-  ALBWebStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
-    Properties:
-      TemplateURL: ./modules/alb-web.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
-        ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
 
-  # 4. Auto Scaling Web (Frontend)
-  ASGWebStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: ALBWebStack
-    Properties:
-      TemplateURL: ./modules/asg-web.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateWebSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateWebSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ2]]
-        WebTargetGroupArn: !GetAtt ALBWebStack.Outputs.WebTargetGroupArn
-        ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
-        InstanceType: !Ref WebInstanceType
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
+      - name: Upload Modules to S3
+        run: |
+          aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-  # 5. Load Balancer App (Backend Interno)
-  ALBAppStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
-    Properties:
-      TemplateURL: ./modules/alb-app.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        WebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
+      - name: Deploy ACM Module
+        run: |
+          aws cloudformation deploy \
+            --template-file templates/modules/acm.yaml \
+            --stack-name stock-manager-acm-dev \
+            --parameter-overrides \
+              ProjectName=stock-manager \
+              Environment=dev \
+              DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID }}
 
-  # 6. Auto Scaling App (Java Backend)
-  ASGAppStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: ALBAppStack
-    Properties:
-      TemplateURL: ./modules/asg-app.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        AppTargetGroupArn: !GetAtt ALBAppStack.Outputs.AppTargetGroupArn
-        InstanceType: !Ref AppInstanceType
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
+      - name: Wait ACM Validation
+        run: |
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name stock-manager-acm-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+            --output text)
+          echo "Waiting for ACM certificate validation..."
+          aws acm wait certificate-validated --certificate-arn $CERT_ARN
+          echo "ACM certificate validated: $CERT_ARN"
 
-  # 7. Banco de Dados (RDS MySQL)
-  RDSStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
-    Properties:
-      TemplateURL: ./modules/rds.yaml
-      Parameters:
-        Environment: !Ref Environment
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateSubnetA: !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ1
-        PrivateSubnetB: !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ2
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
-        DBInstanceClass: !Ref DBInstanceClass
-        DBName: !Ref DBName
-        DBUsername: !Ref DBUsername
-        DBPassword: !Ref DBPassword
+      - name: CloudFormation Package
+        run: |
+          aws cloudformation package \
+            --template-file templates/master.yaml \
+            --s3-bucket ${{ env.S3_BUCKET }} \
+            --output-template-file packaged-master.yaml
 
-  # 8. Cache de Sessão (Redis)
-  RedisStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
-    Properties:
-      TemplateURL: ./modules/elasticache.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
+      - name: Deploy Master Stack
+        run: |
+          # Captura o ARN dinamicamente para passar para a Master Stack
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name stock-manager-acm-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+            --output text)
 
-  # 9. Sistema de Arquivos (EFS)
-  EFSStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
-    Properties:
-      TemplateURL: ./modules/efs.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
-
-  # 10. Camada de Borda (CloudFront)
-  EdgeStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: ALBWebStack
-    Properties:
-      TemplateURL: ./modules/edge.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ProjectName: !Ref ProjectName
-        DomainName: !Ref DomainName
-        HostedZoneId: !Ref HostedZoneId
-        CertificateARN: !Ref CertificateARN 
-        ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
-
-  # 11. DNS e Roteamento (Route 53)
-  Route53Stack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: EdgeStack
-    Properties:
-      TemplateURL: ./modules/route53.yaml
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-        DomainName: !Ref DomainName
-        HostedZoneId: !Ref HostedZoneId
-        CloudFrontDNS: !GetAtt EdgeStack.Outputs.CloudFrontDomainName
-
-Outputs:
-  WebsiteURL:
-    Value: !Sub "https://${DomainName}"
+          aws cloudformation deploy \
+            --template-file packaged-master.yaml \
+            --stack-name ${{ env.STACK_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              Environment=dev \
+              ProjectName=stock-manager \
+              DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID }} \
+              CertificateARN=$CERT_ARN \
+              LatestAMIId=ami-0c101f26f147fa7fd \
+              KeyName=chave-estoque-dev \
+              DBUsername="${{ secrets.DB_USERNAME }}" \
+              DBPassword="${{ secrets.DB_PASSWORD }}" \
+              WebInstanceType=t3.micro \
+              AppInstanceType=t3.small \
+              DBInstanceClass=db.t3.micro
+      
+      - name: Notify Failure
+        if: failure()
+        run: |
+          # Garanta que o tópico 'github-deploy-alerts' exista no console SNS
+          aws sns publish \
+            --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
+            --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
+            --message "O deploy falhou. Verifique os logs no GitHub Actions e o CloudFormation."
