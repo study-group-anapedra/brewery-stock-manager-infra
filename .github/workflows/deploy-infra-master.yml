@@ -1,4 +1,5 @@
 name: Deploy Master Infrastructure
+
 on:
   push:
     branches: [main]
@@ -12,26 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-1
-      S3_BUCKET: stock-manager-prod-artifacts-365646127398
+      S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
+
     steps:
+      #  Checkout do repositório
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      #  Configurar credenciais AWS via OIDC
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-
-      # PASSO 1: Sincronizar módulos
+      #  Sincronizar módulos no S3
       - name: Upload Modules to S3
         run: |
           aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-      # PASSO 2: Deploy INDEPENDENTE do ACM (Obrigatório vir primeiro)
-      # Isso garante que o certificado exista e exporte o ARN para os outros módulos.
+      #  Deploy ACM (deve vir primeiro)
       - name: Deploy ACM Module
         run: |
           aws cloudformation deploy \
@@ -43,7 +45,30 @@ jobs:
               DomainName=asantanadev.com \
               HostedZoneId=Z0620408R2C0W7F3G8S7
 
-      # PASSO 3: Empacotar o Master
+      # Esperar validação do certificado ACM
+      - name: Wait ACM Validation
+        run: |
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name stock-manager-acm-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+            --output text)
+          echo "Waiting for ACM certificate validation..."
+          aws acm wait certificate-validated --certificate-arn $CERT_ARN
+          echo "ACM certificate validated: $CERT_ARN"
+
+      #  Espera o certificado ACM ser validado antes de continuar
+      - name: Wait ACM Validation
+        run: |
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name stock-manager-acm-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateARN'].OutputValue" \
+            --output text)
+          echo "Waiting for ACM certificate validation..."
+          aws acm wait certificate-validated --certificate-arn $CERT_ARN
+          echo "ACM certificate validated: $CERT_ARN"
+    
+
+      # Empacotar master stack
       - name: CloudFormation Package
         run: |
           aws cloudformation package \
@@ -51,7 +76,7 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
-      # PASSO 4: Deploy Final (Sem o parâmetro CertificateARN manual)
+      #  Deploy master stack
       - name: Deploy Master Stack
         run: |
           aws cloudformation deploy \
@@ -70,3 +95,12 @@ jobs:
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
+      
+      #  Notificação em caso de falha
+      - name: Notify Failure
+        if: failure() # Só executa se o job falhar
+        run: |
+          aws sns publish \
+            --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
+            --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
+            --message "O deploy da infraestrutura falhou na branch main. Verifique os logs no GitHub Actions."        
