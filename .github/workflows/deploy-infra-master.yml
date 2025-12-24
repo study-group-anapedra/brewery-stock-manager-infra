@@ -43,7 +43,8 @@ jobs:
               ProjectName=stock-manager \
               Environment=dev \
               DomainName=asantanadev.com \
-              HostedZoneId=Z0620408R2C0W7F3G8S7
+              HostedZoneId=Z0620408R15AZPT367P2
+
 
       # Esperar validação do certificado ACM
       - name: Wait ACM Validation
