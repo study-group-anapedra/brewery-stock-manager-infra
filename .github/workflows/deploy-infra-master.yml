@@ -17,7 +17,7 @@ jobs:
       AWS_REGION: us-east-1
       S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
-      DOMAIN_NAME: asantanadev.com
+      DOMAIN_NAME: api.asantanadev.com 
       ENVIRONMENT: dev
       PROJECT_NAME: stock-manager
 

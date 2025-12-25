@@ -1,16 +1,27 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Edge Layer - CloudFront, S3, WAF e SSL via Parâmetro (Corrigido)
+Description: Edge Layer - CloudFront, S3, WAF e SSL via Parâmetro
 
 Parameters:
-  Environment: { Type: String }
-  ProjectName: { Type: String }
-  DomainName: { Type: String }
-  HostedZoneId: { Type: String }
-  ALBDomainName: { Type: String }
-  # CORREÇÃO: Adicionado para receber o ARN da Master Stack
-  CertificateARN: { Type: String }
+  Environment:
+    Type: String
+
+  ProjectName:
+    Type: String
+
+  DomainName:
+    Type: String
+
+  HostedZoneId:
+    Type: String
+
+  ALBDomainName:
+    Type: String
+
+  CertificateARN:
+    Type: String
 
 Resources:
+
   StaticContentBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -35,7 +46,8 @@ Resources:
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-waf"
       Scope: CLOUDFRONT
-      DefaultAction: { Allow: {} }
+      DefaultAction:
+        Allow: {}
       VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
@@ -43,7 +55,8 @@ Resources:
       Rules:
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 1
-          OverrideAction: { None: {} }
+          OverrideAction:
+            None: {}
           Statement:
             ManagedRuleGroupStatement:
               VendorName: AWS
@@ -58,7 +71,8 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Aliases: [ !Ref DomainName ]
+        Aliases:
+          - !Ref DomainName
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt StaticContentBucket.RegionalDomainName
@@ -74,9 +88,9 @@ Resources:
           CachedMethods: [GET, HEAD]
           ForwardedValues:
             QueryString: true
-            Cookies: { Forward: all }
+            Cookies:
+              Forward: all
         ViewerCertificate:
-          # CORREÇÃO: Usando !Ref para receber o valor da Master
           AcmCertificateArn: !Ref CertificateARN
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
@@ -85,5 +99,6 @@ Resources:
 Outputs:
   CloudFrontDomainName:
     Value: !GetAtt CloudFrontDistribution.DomainName
+
   CloudFrontHostedZoneId:
     Value: Z2FDTNDATAQYW2
