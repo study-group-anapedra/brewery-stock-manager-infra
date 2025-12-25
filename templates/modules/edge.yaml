@@ -10,15 +10,18 @@ Parameters:
 
   DomainName:
     Type: String
+    Description: "Domain alias for CloudFront (must be covered by the ACM certificate)"
 
   HostedZoneId:
     Type: String
 
   ALBDomainName:
     Type: String
+    Description: "DNS name of the Application Load Balancer (without protocol)"
 
   CertificateARN:
     Type: String
+    Description: "ACM certificate ARN (must be in us-east-1)"
 
 Resources:
 
@@ -71,34 +74,59 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
+
         Aliases:
           - !Ref DomainName
+
         Origins:
+          # S3 Origin (Static Assets)
           - Id: S3Origin
             DomainName: !GetAtt StaticContentBucket.RegionalDomainName
             OriginAccessControlId: !Ref CloudFrontOAC
+            S3OriginConfig: {}
+
+          # ALB Origin (Backend)
           - Id: ALBOrigin
             DomainName: !Ref ALBDomainName
             CustomOriginConfig:
               OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+
         DefaultCacheBehavior:
           TargetOriginId: ALBOrigin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods: [GET, HEAD, OPTIONS, POST, PUT, PATCH, DELETE]
-          CachedMethods: [GET, HEAD]
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
           ForwardedValues:
             QueryString: true
             Cookies:
               Forward: all
+
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateARN
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
+
         WebACLId: !GetAtt WebACL.Arn
+
+        HttpVersion: http2
+        PriceClass: PriceClass_100
 
 Outputs:
   CloudFrontDomainName:
+    Description: "CloudFront distribution domain name"
     Value: !GetAtt CloudFrontDistribution.DomainName
 
   CloudFrontHostedZoneId:
+    Description: "Hosted Zone ID for CloudFront (Route53 Alias)"
     Value: Z2FDTNDATAQYW2

@@ -1,22 +1,28 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo Load Balancer Web (ALB) - Configuração de Tráfego HTTPS Corrigida
+Description: Módulo Load Balancer Web (ALB) - HTTPS com Certificado via Master Stack
 
 Parameters:
   Environment:
     Type: String
+
   ProjectName:
     Type: String
+
   VpcId:
     Type: AWS::EC2::VPC::Id
+
   PublicSubnets:
     Type: String
+
   ALBWebSecurityGroupId:
-    Type: String
-  # NOVO: Recebe o ARN diretamente da Master Stack
-  CertificateArn:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  # Recebe o ARN diretamente da Master Stack
+  CertificateARN:
     Type: String
 
 Resources:
+
   ALBWeb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -30,6 +36,7 @@ Resources:
   WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
+      Name: !Sub "${ProjectName}-${Environment}-tg-web"
       VpcId: !Ref VpcId
       Port: 80
       Protocol: HTTP
@@ -37,6 +44,9 @@ Resources:
       HealthCheckPath: /
       HealthCheckIntervalSeconds: 30
       HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200-399
 
   ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -45,8 +55,7 @@ Resources:
       Port: 443
       Protocol: HTTPS
       Certificates:
-        # CORREÇÃO: Usa !Ref em vez de !ImportValue
-        - CertificateArn: !Ref CertificateArn
+        - CertificateArn: !Ref CertificateARN
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref WebTargetGroup
@@ -66,8 +75,13 @@ Resources:
 
 Outputs:
   ALBWebDNS:
+    Description: DNS público do ALB Web
     Value: !GetAtt ALBWeb.DNSName
+
   ALBHostedZoneId:
+    Description: Hosted Zone ID do ALB
     Value: !GetAtt ALBWeb.CanonicalHostedZoneID
+
   WebTargetGroupArn:
+    Description: ARN do Target Group Web
     Value: !Ref WebTargetGroup
