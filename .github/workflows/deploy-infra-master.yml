@@ -18,7 +18,6 @@ env:
   PROJECT_NAME: stock-manager
 
 jobs:
-  # JOB 1: TODA A INFRA (VPC, RDS, CloudFront, EFS, etc)
   deploy-infra:
     name: Deploy Base Infrastructure
     runs-on: ubuntu-latest
@@ -55,20 +54,19 @@ jobs:
               CertificateARN=${{ vars.CERTIFICATE_ARN }} \
               LatestAMIId=${{ vars.LATEST_AMI }} \
               KeyName=${{ vars.KEY_NAME }} \
-              DBUsername=stock_user_dev \
+              HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
+              DBUsername=${{ secrets.DB_USERNAME }} \
               DBPassword=${{ secrets.DB_PASSWORD }} \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
 
-  # JOB 2: APENAS DNS (Executa após o sucesso da Infra)
   deploy-dns:
     name: Deploy DNS Records
     runs-on: ubuntu-latest
     needs: deploy-infra
-    # Injeção explícita da variável do repositório para o ambiente do Job
     env:
-      HOSTED_ZONE_ID_VALUE: ${{ vars.HOSTED_ZONE_ID }}
+      HOSTED_ZONE_ID_VAL: ${{ vars.HOSTED_ZONE_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -86,5 +84,5 @@ jobs:
             --stack-name ${{ env.STACK_NAME_DNS }} \
             --parameter-overrides \
               DomainName=${{ env.DOMAIN_NAME }} \
-              HostedZoneId=${{ env.HOSTED_ZONE_ID_VALUE }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID_VAL }} \
               ParentStackName=${{ env.STACK_NAME_INFRA }}
