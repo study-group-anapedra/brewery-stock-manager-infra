@@ -18,7 +18,7 @@ env:
   PROJECT_NAME: stock-manager
 
 jobs:
-  # JOB 1: TODA A INFRA (VPC, RDS, CloudFront)
+  # JOB 1: TODA A INFRA (VPC, RDS, CloudFront, EFS, etc)
   deploy-infra:
     name: Deploy Base Infrastructure
     runs-on: ubuntu-latest
@@ -52,20 +52,23 @@ jobs:
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
               DomainName=${{ env.DOMAIN_NAME }} \
-              CertificateARN=arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096 \
-              LatestAMIId=ami-0c101f26f147fa7fd \
-              KeyName=chave-estoque-dev \
+              CertificateARN=${{ vars.CERTIFICATE_ARN }} \
+              LatestAMIId=${{ vars.LATEST_AMI }} \
+              KeyName=${{ vars.KEY_NAME }} \
               DBUsername=stock_user_dev \
               DBPassword=${{ secrets.DB_PASSWORD }} \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
 
-  # JOB 2: APENAS DNS (O passo que causava o rollback)
+  # JOB 2: APENAS DNS (Executa após o sucesso da Infra)
   deploy-dns:
     name: Deploy DNS Records
     runs-on: ubuntu-latest
     needs: deploy-infra
+    # Injeção explícita da variável do repositório para o ambiente do Job
+    env:
+      HOSTED_ZONE_ID_VALUE: ${{ vars.HOSTED_ZONE_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -83,5 +86,5 @@ jobs:
             --stack-name ${{ env.STACK_NAME_DNS }} \
             --parameter-overrides \
               DomainName=${{ env.DOMAIN_NAME }} \
-              HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
+              HostedZoneId=${{ env.HOSTED_ZONE_ID_VALUE }} \
               ParentStackName=${{ env.STACK_NAME_INFRA }}
