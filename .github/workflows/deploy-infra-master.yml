@@ -51,7 +51,6 @@ jobs:
       # Deploy da Master Stack
       - name: Deploy Master Stack
         run: |
-
           aws cloudformation deploy \
             --template-file packaged-master.yaml \
             --stack-name ${{ env.STACK_NAME }} \
@@ -60,6 +59,8 @@ jobs:
               Environment=${{ env.ENVIRONMENT }} \
               ProjectName=${{ env.PROJECT_NAME }} \
               DomainName=${{ env.DOMAIN_NAME }} \
+              HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
+              CertificateArn=${{ vars.CERTIFICATE_ARN }} \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-dev \
               DBUsername="${{ secrets.DB_USERNAME }}" \
@@ -67,6 +68,7 @@ jobs:
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
+
 
       # Esperar FINALIZAÇÃO COMPLETA da Master Stack (e nested stacks)
       - name: Wait Master Stack Completion

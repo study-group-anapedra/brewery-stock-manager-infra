@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Módulo para Gerenciamento de Certificado SSL (ACM) com Validação DNS
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  DomainName:
+    Type: String
+    Description: "Nome do domínio (ex: asantanadev.com)"
+  HostedZoneId:
+    Type: String
+    Description: "ID da Hosted Zone"
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-certificate"
+
+Outputs:
+  # Ajustado para CertificateARN (tudo maiúsculo no final) para alinhar com o Workflow
+  CertificateARN:
+    Description: "ARN do Certificado SSL"
+    Value: !Ref Certificate
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-CertificateARN"
+
+
+
+      
