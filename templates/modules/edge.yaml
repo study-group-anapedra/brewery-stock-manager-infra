@@ -123,7 +123,8 @@ Resources:
         PriceClass: PriceClass_100
 
 Outputs:
-  CloudFrontDomainName:
+  # Alterado para 'CloudFrontDNS' para bater com o que o master.yaml espera
+  CloudFrontDNS:
     Description: "CloudFront distribution domain name"
     Value: !GetAtt CloudFrontDistribution.DomainName
 

@@ -211,20 +211,13 @@ Resources:
         CertificateARN: !Ref CertificateARN
         ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
 
-  # 11. Route 53
-  Route53Stack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: EdgeStack
-    Properties:
-      TemplateURL: ./modules/route53.yaml
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-        DomainName: !Ref DomainName
-        HostedZoneId: !Ref HostedZoneId
-        CloudFrontDNS: !GetAtt EdgeStack.Outputs.CloudFrontDomainName
-
 Outputs:
   WebsiteURL:
-    Description: URL pública da aplicação
+    Description: "URL pública da aplicação"
     Value: !Sub "https://${DomainName}"
+
+  CloudFrontDNSForRoute53:
+    Description: "DNS do CloudFront para ser usado no Job 2"
+    Value: !GetAtt EdgeStack.Outputs.CloudFrontDNS
+    Export:
+      Name: !Sub "${AWS::StackName}-CF-DNS"
