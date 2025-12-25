@@ -63,11 +63,12 @@ jobs:
               CertificateArn=${{ vars.CERTIFICATE_ARN }} \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-dev \
-              DBUsername="${{ secrets.DB_USERNAME }}" \
-              DBPassword="${{ secrets.DB_PASSWORD }}" \
+              DBUsername=stock_user_dev \
+              DBPassword=StockManagerDev2025 \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
+
 
 
       # Esperar FINALIZAÇÃO COMPLETA da Master Stack (e nested stacks)
