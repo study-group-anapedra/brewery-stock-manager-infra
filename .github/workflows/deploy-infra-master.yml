@@ -55,7 +55,7 @@ jobs:
               CertificateARN=arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096 \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-prod \
-              HostedZoneId=Z0620408R2C0W7F3G8S7 \
+              HostedZoneId=Z0620408R15AZPT367P2 \
               DBUsername=stock_user_dev \
               DBPassword=${{ secrets.DB_PASSWORD }} \
               WebInstanceType=t3.micro \
