@@ -17,30 +17,24 @@ jobs:
       AWS_REGION: us-east-1
       S3_BUCKET: stock-manager-prod-artifacts
       STACK_NAME: stock-manager-master-dev
-      HOSTED_ZONE_ID: Z0620408R15AZPT367P2
       DOMAIN_NAME: asantanadev.com
       ENVIRONMENT: dev
       PROJECT_NAME: stock-manager
 
     steps:
-      # Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # AWS Credentials via OIDC
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Upload módulos para S3
       - name: Upload Modules to S3
         run: |
           aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-
-      # Package da Master Stack
       - name: CloudFormation Package
         run: |
           aws cloudformation package \
@@ -48,7 +42,6 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
-      # Deploy da Master Stack
       - name: Deploy Master Stack
         run: |
           aws cloudformation deploy \
@@ -60,34 +53,26 @@ jobs:
               ProjectName=${{ env.PROJECT_NAME }} \
               DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
-              CertificateArn=${{ vars.CERTIFICATE_ARN }} \
+              CertificateARN=${{ vars.CERTIFICATE_ARN }} \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-dev \
               DBUsername=stock_user_dev \
-              DBPassword=StockManagerDev2025 \
+              DBPassword=${{ secrets.DB_PASSWORD }} \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
 
-
-
-      # Esperar FINALIZAÇÃO COMPLETA da Master Stack (e nested stacks)
       - name: Wait Master Stack Completion
         run: |
-          echo "Aguardando Master Stack finalizar..."
-
           aws cloudformation wait stack-create-complete \
             --stack-name ${{ env.STACK_NAME }} \
           || aws cloudformation wait stack-update-complete \
             --stack-name ${{ env.STACK_NAME }}
 
-          echo "Master Stack criada/atualizada com sucesso!"
-
-      # Notificação de falha
       - name: Notify Failure
         if: failure()
         run: |
           aws sns publish \
             --topic-arn arn:aws:sns:us-east-1:365646127398:github-deploy-alerts \
             --subject "FALHA NO DEPLOY: ${{ env.STACK_NAME }}" \
-            --message "O deploy falhou. Verifique os eventos do CloudFormation e as nested stacks."
+            --message "Falha no deploy da Master Stack."
