@@ -42,7 +42,7 @@ jobs:
             --s3-bucket ${{ env.S3_BUCKET }} \
             --output-template-file packaged-master.yaml
 
-            - name: Deploy Master Stack
+      - name: Deploy Master Stack
         run: |
           aws cloudformation deploy \
             --template-file packaged-master.yaml \
@@ -61,7 +61,6 @@ jobs:
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
-
 
       - name: Wait Master Stack Completion
         run: |
