@@ -25,7 +25,7 @@ O fluxo de acesso à aplicação ocorre da seguinte forma:
 </p>
 <p>
   <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/diagrama-aws-arquitetura.png">
-    🔗 Diagrama de flux AWS
+    🔗 Diagrama do Fluxo da Arquitetura AWS
   </a>
 </p>
 ---
@@ -86,7 +86,7 @@ O processo de construção desta infraestrutura foi marcado por um ciclo de **Te
   
 
 ---
-p>
+
   <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/error-deploy-local-bash.png">
     🔗 Erro deply local
   </a>
