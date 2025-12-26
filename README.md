@@ -22,7 +22,12 @@ O fluxo de acesso à aplicação ocorre da seguinte forma:
 8. **Amazon ElastiCache (Redis)** e **Amazon EFS** garantem performance e armazenamento compartilhado.
 9. O acesso externo das subnets privadas ocorre via **NAT Gateways**.
 
-
+</p>
+<p>
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/diagrama-aws-arquitetura.png">
+    🔗 Diagrama de flux AWS
+  </a>
+</p>
 ---
 
 ## Dificuldades e Aprendizados
@@ -67,7 +72,7 @@ A estratégia consiste em provisionar a infraestrutura completa para validar a a
 
 </p>
 <p>
-  <a href="">
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/budget_notification.png">
     🔗 Registro dos alertas configurados para monitoramento de custos em tempo real
   </a>
 </p>
@@ -82,13 +87,13 @@ O processo de construção desta infraestrutura foi marcado por um ciclo de **Te
 
 ---
 p>
-  <a href="">
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/error-deploy-local-bash.png">
     🔗 Erro deply local
   </a>
 </p>
 
 <p>
-  <a href="">
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/local-deploy-success-bash.png">
     🔗 Sucesso deply local
   </a>
 </p>
@@ -110,15 +115,11 @@ p>
    - Criar o CloudFront primeiro, aguardar propagação global e depois criar o registro DNS em uma stack separada.
    - Evita rollbacks em cascata e garante deploy previsível.
 
-  ### 📹 Sucesso do Deploy via GitHub Actions
-<video width="600" controls>
-  <source src="doc/deploy_github_success.webm" type="video/webm">
-  Seu navegador não suporta o elemento de vídeo.
-</video>
+  
 
 <p>
-  <a href="doc/deploy_github_success.webm">
-    🔗 Sucesso após desacoplamento CloudFront e Route53
+  <a href="https://drive.google.com/file/d/1IlaBm_M72LY16YJ62Q7Dca7yxch6scxH/view?usp=sharing">
+    🔗 Sucesso no Deploy via GitHub Actions após desacoplamento do CloudFront e Route53
   </a>
 </p>
 
@@ -183,19 +184,11 @@ Com **CloudFormation** e Infraestrutura como Código (IaC), conseguimos:
 Durante o curso e os testes, tive que **criar e destruir stacks diversas vezes** para aprender como lidar com rollback, dependências entre recursos, propagação global de serviços como CloudFront, e configuração de RDS Multi-AZ. Essa prática me permitiu internalizar conceitos e entender **quando a AWS precisa de intervenção manual** e quando o IaC resolve tudo de forma previsível, o que me estimula a avançar no apredizado.  
 
 <p>
-  <a href="doc/stack_termination.webm">
+  <a href="https://drive.google.com/file/d/1G0nQ32OuQPoWKUMldEonb2TvTJezBKG3/view?usp=sharing">
     🔗 Destruindo stacks
   </a>
 </p>
 
-
-
-
-### 📹 Terminação das Stacks
-<video width="600" controls>
-  <source src="doc/stack_termination.webm" type="video/webm">
-  Seu navegador não suporta o elemento de vídeo.
-</video>
 
 
 ## 🧑‍💻 Autora
