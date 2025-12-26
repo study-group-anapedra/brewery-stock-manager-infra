@@ -1,4 +1,4 @@
-# 🍺 Beer Brewery Stock Manager
+# 🍺  Brewery Stock Manager
 
 Gerenciador de estoque de cervejarias com foco em **alta disponibilidade**, **escalabilidade** e **segurança** na AWS.
 
@@ -6,7 +6,7 @@ Gerenciador de estoque de cervejarias com foco em **alta disponibilidade**, **es
 
 ## 🏗️ Arquitetura da Aplicação (AWS)
 
-A arquitetura do **Beer Brewery Stock Manager** segue o padrão de **Três Camadas (3-Tier Architecture)**, distribuída em múltiplas **Availability Zones (AZs)** para garantir tolerância a falhas.
+A arquitetura do **Brewery Stock Manager** segue o padrão de **Três Camadas (3-Tier Architecture)**, distribuída em múltiplas **Availability Zones (AZs)** para garantir tolerância a falhas.
 
 ### 📌 Visão Geral da Arquitetura
 
