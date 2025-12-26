@@ -1,6 +1,13 @@
 # 🍺  Brewery Stock Manager
 
 Gerenciador de estoque de cervejarias com foco em **alta disponibilidade**, **escalabilidade** e **segurança** na AWS.
+</p>
+<p>
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager">
+    🔗 Repositori do Projeto Brewery Stock Manager
+  </a>
+</p>
+
 
 ---
 
