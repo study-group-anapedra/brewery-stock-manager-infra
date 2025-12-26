@@ -84,5 +84,5 @@ jobs:
             --stack-name ${{ env.STACK_NAME_DNS }} \
             --parameter-overrides \
               DomainName=${{ env.DOMAIN_NAME }} \
-              HostedZoneId=Z0620408R2C0W7F3G8S7 \
+              HostedZoneId=Z0620408R15AZPT367P2 \
               ParentStackName=${{ env.STACK_NAME_INFRA }}
