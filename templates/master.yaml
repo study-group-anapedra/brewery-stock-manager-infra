@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada Corrigida
+Description: Master Stack - Infraestrutura Gerenciada Completa e Corrigida
 
 Parameters:
   Environment:
@@ -13,7 +13,6 @@ Parameters:
     Type: String
   CertificateARN:
     Type: String
-    Description: ARN do certificado ACM (us-east-1)
   LatestAMIId:
     Type: AWS::EC2::Image::Id
   KeyName:
@@ -35,6 +34,7 @@ Parameters:
 
 Resources:
 
+  # 1. VPC
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -43,6 +43,7 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
 
+  # 2. Security Groups
   SecurityStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VPCStack
@@ -59,6 +60,7 @@ Resources:
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
+  # 3. ALB Web
   ALBWebStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -68,6 +70,8 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
+        # Correção do Parâmetro faltante:
+        AlbSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
         PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         PrivateDbSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateDbSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ2]]
@@ -77,11 +81,10 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
+  # 4. ASG App
   ASGAppStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - SecurityStack
-      - ALBWebStack
+    DependsOn: ALBWebStack
     Properties:
       TemplateURL: ./modules/asg-app.yaml
       Parameters:
@@ -95,11 +98,10 @@ Resources:
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
 
+  # 5. RDS
   RDSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SecurityStack
+    DependsOn: SecurityStack
     Properties:
       TemplateURL: ./modules/rds.yaml
       Parameters:
@@ -113,11 +115,10 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
+  # 6. Redis
   RedisStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SecurityStack
+    DependsOn: SecurityStack
     Properties:
       TemplateURL: ./modules/elasticache.yaml
       Parameters:
@@ -127,11 +128,10 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
+  # 7. EFS
   EFSStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SecurityStack
+    DependsOn: SecurityStack
     Properties:
       TemplateURL: ./modules/efs.yaml
       Parameters:
@@ -141,6 +141,7 @@ Resources:
         PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
 
+  # 8. Edge (CloudFront)
   EdgeStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBWebStack
@@ -158,8 +159,3 @@ Outputs:
   WebsiteURL:
     Description: URL pública da aplicação
     Value: !Sub "https://${DomainName}"
-  CloudFrontDNSForRoute53:
-    Description: DNS do CloudFront
-    Value: !GetAtt EdgeStack.Outputs.CloudFrontDNS
-    Export:
-      Name: !Sub "${AWS::StackName}-CF-DNS"
