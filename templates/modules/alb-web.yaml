@@ -1,139 +1,58 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ALB + ASG + RDS (Internet-facing)
+Description: Application Load Balancer para o Backend Java
 
 Parameters:
-  Environment: { Type: String, AllowedValues: [dev, prod] }
+  Environment: { Type: String }
   ProjectName: { Type: String }
-  VpcId: { Type: AWS::EC2::VPC::Id }
-  PublicSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  PrivateAppSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  PrivateDbSubnets: { Type: List<AWS::EC2::Subnet::Id> }
+  VpcId: { Type: String }
+  PublicSubnets: { Type: String }
+  # Adicionei este parâmetro para receber o SG da Master Stack
+  AlbSecurityGroupId: { Type: String } 
+  PrivateAppSubnets: { Type: String }
+  PrivateDbSubnets: { Type: String }
   CertificateARN: { Type: String }
-  InstanceType: { Type: String, Default: t3.small }
-  LatestAMIId: { Type: AWS::EC2::Image::Id }
-  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
+  LatestAMIId: { Type: String }
+  KeyName: { Type: String }
   DBUsername: { Type: String }
-  DBPassword: { Type: String, NoEcho: true }
+  DBPassword: { Type: String }
 
 Resources:
-  # --- Security Groups ---
-  AlbWebSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "Public ALB SG"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
-        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
-
-  AppSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "App SG"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - { IpProtocol: tcp, FromPort: 8080, ToPort: 8080, SourceSecurityGroupId: !Ref AlbWebSG }
-        - { IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: 0.0.0.0/0 }
-
-  RdsSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "RDS SG"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref AppSG }
-
-  # --- ALB + Target Group ---
-  PublicALB:
+  # 1. O Load Balancer
+  ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-alb"
-      Scheme: internet-facing
-      Subnets: !Ref PublicSubnets
-      SecurityGroups: [!Ref AlbWebSG]
+      Subnets: !Split [",", !Ref PublicSubnets]
+      SecurityGroups: 
+        - !Ref AlbSecurityGroupId # Agora usa o parâmetro direto
+      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-alb" }]
 
-  AppTargetGroup:
+  # 2. Target Group (Porta 8080 para o Postman/Java)
+  WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-tg"
       VpcId: !Ref VpcId
-      Port: 8080
       Protocol: HTTP
+      Port: 8080
+      HealthCheckPath: /healthcheck # Certifique-se que seu Java tem essa rota
       TargetType: instance
-      HealthCheckPath: /actuator/health
-      Matcher: { HttpCode: "200-499" }
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
 
-  HttpsListener:
+  # 3. Listener HTTP (Porta 80)
+  HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: !Ref PublicALB
-      Port: 443
-      Protocol: HTTPS
-      Certificates: [{ CertificateArn: !Ref CertificateARN }]
-      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref AppTargetGroup }]
-
-  HttpListenerRedirect:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref PublicALB
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
       DefaultActions:
-        - Type: redirect
-          RedirectConfig: { Protocol: HTTPS, Port: "443", StatusCode: HTTP_301 }
-
-  # --- Launch Template + ASG ---
-  AppLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-lt"
-      LaunchTemplateData:
-        ImageId: !Ref LatestAMIId
-        InstanceType: !Ref InstanceType
-        KeyName: !Ref KeyName
-        SecurityGroupIds: [!Ref AppSG]
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            yum update -y
-            yum install -y java-17-amazon-corretto
-
-  AppASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
-      VPCZoneIdentifier: !Ref PrivateAppSubnets
-      LaunchTemplate:
-        LaunchTemplateId: !Ref AppLaunchTemplate
-        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
-      MinSize: "1"
-      MaxSize: "1"
-      DesiredCapacity: "1"
-      TargetGroupARNs: [!Ref AppTargetGroup]
-
-  # --- RDS ---
-  RdsSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: "DB Subnet Group"
-      SubnetIds: !Ref PrivateDbSubnets
-
-  PostgresDatabase:
-    Type: AWS::RDS::DBInstance
-    Properties:
-      DBInstanceIdentifier: !Sub "${ProjectName}-${Environment}-db"
-      Engine: postgres
-      DBInstanceClass: db.t3.micro
-      AllocatedStorage: 20
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
-      VPCSecurityGroups: [!Ref RdsSG]
-      DBSubnetGroupName: !Ref RdsSubnetGroup
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
 
 Outputs:
-  ALBWebDNS: { Value: !GetAtt PublicALB.DNSName }
-  WebTargetGroupArn: { Value: !Ref AppTargetGroup }
-  AlbWebSecurityGroupId: { Value: !Ref AlbWebSG }
-  AppSecurityGroupId: { Value: !Ref AppSG }
-  RDSInstanceEndpoint: { Value: !GetAtt PostgresDatabase.Endpoint.Address }
-
+  ALBWebDNS:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  WebTargetGroupArn:
+    Value: !Ref WebTargetGroup
