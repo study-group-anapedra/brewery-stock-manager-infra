@@ -1,10 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo Route 53 - Isolado
+Description: Módulo Route 53 - Importando DNS da Master Stack
 
 Parameters:
-  ParentStackName: { Type: String } # Nome da stack master vindo do GitHub
-  DomainName: { Type: String }
-  HostedZoneId: { Type: String }
+  DomainName: 
+    Type: String
+  HostedZoneId: 
+    Type: String
+  ParentStackName: 
+    Type: String
+    Description: Nome da stack mestre para importar o DNS do CloudFront
 
 Resources:
   CloudFrontRecord:
@@ -14,7 +18,7 @@ Resources:
       Name: !Ref DomainName
       Type: A
       AliasTarget:
-        # Ele lê o carimbo que o Job 1 (Master) deixou na conta AWS
+        # Importa automaticamente o DNS exportado pela Master Stack
         DNSName: !ImportValue 
           Fn::Sub: "${ParentStackName}-CF-DNS"
         HostedZoneId: Z2FDTNDATAQYW2

@@ -29,7 +29,7 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # --- Subnets ---
+  # --- Subnets Públicas (Para o ALB e Postman) ---
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -48,6 +48,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-az2" }]
 
+  # --- Subnets Privadas (Para a App e Banco) ---
   PrivateWebAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -96,7 +97,7 @@ Resources:
       CidrBlock: 10.0.32.0/24
       Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-db-az2" }]
 
-  # --- NAT Gateway ---
+  # --- NAT Gateway (Permite que a App saia para a Internet) ---
   NatEIP:
     Type: AWS::EC2::EIP
     Properties: { Domain: vpc }
@@ -107,7 +108,7 @@ Resources:
       AllocationId: !GetAtt NatEIP.AllocationId
       SubnetId: !Ref PublicSubnetAZ1
 
-  # --- Route Tables ---
+  # --- Tabelas de Rotas ---
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -135,7 +136,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  # --- Associations ---
+  # --- Associações ---
   PubAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ1, RouteTableId: !Ref PublicRouteTable } }
   PubAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ2, RouteTableId: !Ref PublicRouteTable } }
   WebAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateWebAZ1, RouteTableId: !Ref PrivateRouteTable } }
@@ -146,12 +147,20 @@ Resources:
   DbAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateDbAZ2, RouteTableId: !Ref PrivateRouteTable } }
 
 Outputs:
-  VpcId: { Value: !Ref VPC }
+  VpcId: 
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-VpcId"
+
   PublicSubnetAZ1: { Value: !Ref PublicSubnetAZ1 }
   PublicSubnetAZ2: { Value: !Ref PublicSubnetAZ2 }
+  
   PrivateWebSubnetAZ1: { Value: !Ref PrivateWebAZ1 }
   PrivateWebSubnetAZ2: { Value: !Ref PrivateWebAZ2 }
+  
   PrivateAppSubnetAZ1: { Value: !Ref PrivateAppAZ1 }
   PrivateAppSubnetAZ2: { Value: !Ref PrivateAppAZ2 }
+  
+  # Correção dos nomes lógicos conforme os recursos definidos
   PrivateDbSubnetAZ1: { Value: !Ref PrivateDbAZ1 }
   PrivateDbSubnetAZ2: { Value: !Ref PrivateDbAZ2 }

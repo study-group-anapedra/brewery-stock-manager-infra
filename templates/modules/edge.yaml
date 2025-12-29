@@ -1,30 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Edge Layer - CloudFront, S3, WAF e SSL via Parâmetro
+Description: Edge Layer - CloudFront com foco em Backend Java e S3
 
 Parameters:
-  Environment:
-    Type: String
-
-  ProjectName:
-    Type: String
-
-  DomainName:
-    Type: String
-    Description: "Domain alias for CloudFront (must be covered by the ACM certificate)"
-
-  HostedZoneId:
-    Type: String
-
-  ALBDomainName:
-    Type: String
-    Description: "DNS name of the Application Load Balancer (without protocol)"
-
-  CertificateARN:
-    Type: String
-    Description: "ACM certificate ARN (must be in us-east-1)"
+  Environment: { Type: String }
+  ProjectName: { Type: String }
+  DomainName: { Type: String }
+  HostedZoneId: { Type: String }
+  ALBDomainName: { Type: String }
+  CertificateARN: { Type: String }
 
 Resources:
-
   StaticContentBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -49,8 +34,7 @@ Resources:
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-waf"
       Scope: CLOUDFRONT
-      DefaultAction:
-        Allow: {}
+      DefaultAction: { Allow: {} }
       VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
@@ -58,8 +42,7 @@ Resources:
       Rules:
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 1
-          OverrideAction:
-            None: {}
+          OverrideAction: { None: {} }
           Statement:
             ManagedRuleGroupStatement:
               VendorName: AWS
@@ -74,60 +57,42 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-
-        Aliases:
-          - !Ref DomainName
-
+        Aliases: [ !Ref DomainName ]
         Origins:
-          # S3 Origin (Static Assets)
           - Id: S3Origin
             DomainName: !GetAtt StaticContentBucket.RegionalDomainName
             OriginAccessControlId: !Ref CloudFrontOAC
             S3OriginConfig: {}
-
-          # ALB Origin (Backend)
           - Id: ALBOrigin
             DomainName: !Ref ALBDomainName
             CustomOriginConfig:
               OriginProtocolPolicy: https-only
-              OriginSSLProtocols:
-                - TLSv1.2
+              OriginSSLProtocols: [ TLSv1.2 ]
 
         DefaultCacheBehavior:
           TargetOriginId: ALBOrigin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-          CachedMethods:
-            - GET
-            - HEAD
+          AllowedMethods: [ GET, HEAD, OPTIONS, POST, PUT, PATCH, DELETE ]
+          CachedMethods: [ GET, HEAD ]
           ForwardedValues:
             QueryString: true
-            Cookies:
-              Forward: all
+            Cookies: { Forward: all }
+            Headers: [ "Authorization", "Host", "Origin", "Access-Control-Request-Headers", "Access-Control-Request-Method" ]
+          # AJUSTE PARA BACKEND: Força o CloudFront a não cachear respostas da API
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
 
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateARN
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
-
         WebACLId: !GetAtt WebACL.Arn
-
         HttpVersion: http2
         PriceClass: PriceClass_100
 
 Outputs:
-  # Alterado para 'CloudFrontDNS' para bater com o que o master.yaml espera
   CloudFrontDNS:
-    Description: "CloudFront distribution domain name"
     Value: !GetAtt CloudFrontDistribution.DomainName
-
   CloudFrontHostedZoneId:
-    Description: "Hosted Zone ID for CloudFront (Route53 Alias)"
     Value: Z2FDTNDATAQYW2

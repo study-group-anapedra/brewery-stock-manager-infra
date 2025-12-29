@@ -1,33 +1,54 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Backend Layer - Auto Scaling Group para Java App
+Description: Camada de Backend (Java) - Conectado ao ALB Web
 
 Parameters:
-  Environment: { Type: String }
-  ProjectName: { Type: String }
-  VpcId: { Type: String }
-  PrivateAppSubnets: { Type: List<AWS::EC2::Subnet::Id> }
-  AppTargetGroupArn: { Type: String }
-  InstanceType: { Type: String } # Adicionado para corrigir E3043
-  LatestAMIId: { Type: AWS::EC2::Image::Id }
-  KeyName: { Type: AWS::EC2::KeyPair::KeyName }
+  Environment:
+    Type: String
+  ProjectName:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateAppSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  # Este parâmetro recebe o Target Group do ALB Web para o Postman funcionar
+  AppTargetGroupArn:
+    Type: String
+  # Este parâmetro recebe o ID do Security Group que permite SSH e tráfego do ALB
+  AppSecurityGroupId:
+    Type: String
+  InstanceType:
+    Type: String
+  LatestAMIId:
+    Type: AWS::EC2::Image::Id
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
+  # --- Configuração de Lançamento (Launch Template) ---
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-launch-template"
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-lt"
       LaunchTemplateData:
         ImageId: !Ref LatestAMIId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyName
-        # Security Groups devem ser passados aqui via IDs
+        SecurityGroupIds:
+          - !Ref AppSecurityGroupId
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y java-17-amazon-corretto
+            # Aqui entrará o comando para rodar seu JAR futuramente
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
                 Value: !Sub "${ProjectName}-${Environment}-app-instance"
 
-  AppAsg:
+  # --- Auto Scaling Group ---
+  AppASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-app-asg"
@@ -36,15 +57,18 @@ Resources:
         LaunchTemplateId: !Ref AppLaunchTemplate
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
       MinSize: "1"
-      MaxSize: "3"
+      MaxSize: "2"
       DesiredCapacity: "1"
+      # Essencial para o Postman: registra a instância no ALB Web
       TargetGroupARNs:
         - !Ref AppTargetGroupArn
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-asg"
+          Value: !Sub "${ProjectName}-${Environment}-app-server"
           PropagateAtLaunch: true
 
 Outputs:
-  AppAsgName:
-    Value: !Ref AppAsg
+  AsgName:
+    Value: !Ref AppASG

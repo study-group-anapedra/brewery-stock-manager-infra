@@ -35,6 +35,14 @@ O fluxo de acesso à aplicação ocorre da seguinte forma:
     🔗 Diagrama do Fluxo da Arquitetura AWS
   </a>
 </p>
+
+</p>
+<p>
+  <a href="https://github.com/study-group-anapedra/brewery-stock-manager-infra/blob/main/doc/AWS_CloudFormation_Ferramenta.pdf">
+    🔗 Sobre AWS CloudFormation
+  </a>
+</p>
+
 ---
 
 ## Dificuldades e Aprendizados
