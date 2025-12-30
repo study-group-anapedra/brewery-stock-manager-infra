@@ -154,8 +154,16 @@ Resources:
         HostedZoneId: !Ref HostedZoneId
         CertificateARN: !Ref CertificateARN
         ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
-
+        
 Outputs:
   WebsiteURL:
     Description: URL pública da aplicação
     Value: !Sub "https://${DomainName}"
+
+  CloudFrontDNSForRoute53:
+    Description: DNS do CloudFront para importação
+    Value: !GetAtt EdgeStack.Outputs.CloudFrontDNS
+    Export:
+      # Este nome deve bater exatamente com o !ImportValue do DNS
+      Name: !Sub "${AWS::StackName}-CF-DNS"
+    
