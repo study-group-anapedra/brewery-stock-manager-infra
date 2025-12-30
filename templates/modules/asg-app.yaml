@@ -1,30 +1,30 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Camada de Backend (Java) - Conectado ao ALB Web
+Description: App Backend - ASG (estável para configuração inicial)
 
 Parameters:
   Environment:
     Type: String
+
   ProjectName:
     Type: String
-  VpcId:
-    Type: AWS::EC2::VPC::Id
+
   PrivateAppSubnets:
     Type: List<AWS::EC2::Subnet::Id>
-  # Este parâmetro recebe o Target Group do ALB Web para o Postman funcionar
+
   AppTargetGroupArn:
     Type: String
-  # Este parâmetro recebe o ID do Security Group que permite SSH e tráfego do ALB
-  AppSecurityGroupId:
-    Type: String
+
   InstanceType:
     Type: String
+
   LatestAMIId:
     Type: AWS::EC2::Image::Id
+
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
-  # --- Configuração de Lançamento (Launch Template) ---
+
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -34,20 +34,20 @@ Resources:
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyName
         SecurityGroupIds:
-          - !Ref AppSecurityGroupId
+          - Fn::ImportValue:
+              Fn::Sub: "${ProjectName}-${Environment}-AppSG"
         UserData:
-          Fn::Base64: !Sub |
+          Fn::Base64: |
             #!/bin/bash
             yum update -y
-            yum install -y java-17-amazon-corretto
-            # Aqui entrará o comando para rodar seu JAR futuramente
+            yum install -y java-21-amazon-corretto
+            echo "EC2 pronta" > /home/ec2-user/status.txt
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
                 Value: !Sub "${ProjectName}-${Environment}-app-instance"
 
-  # --- Auto Scaling Group ---
   AppASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -57,13 +57,12 @@ Resources:
         LaunchTemplateId: !Ref AppLaunchTemplate
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
       MinSize: "1"
-      MaxSize: "2"
+      MaxSize: "1"
       DesiredCapacity: "1"
-      # Essencial para o Postman: registra a instância no ALB Web
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
       TargetGroupARNs:
         - !Ref AppTargetGroupArn
-      HealthCheckType: ELB
-      HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app-server"
@@ -71,4 +70,5 @@ Resources:
 
 Outputs:
   AsgName:
+    Description: Auto Scaling Group Name
     Value: !Ref AppASG

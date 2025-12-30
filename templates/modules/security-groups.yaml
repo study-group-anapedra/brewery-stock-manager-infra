@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Central Security Groups - Web (ALB), App (ASG) and RDS (Database)
+Description: Central Security Groups - ALB, App e RDS
 
 Parameters:
   VpcId:
@@ -8,71 +8,48 @@ Parameters:
     Type: String
   Environment:
     Type: String
-  # Parâmetros necessários para evitar erro de validação da Master Stack:
-  PublicSubnets: { Type: String }
-  PrivateAppSubnets: { Type: String }
-  PrivateDbSubnets: { Type: String }
-  CertificateARN: { Type: String }
-  LatestAMIId: { Type: String }
-  KeyName: { Type: String }
 
 Resources:
-  # 1. ALB Público (Entrada Web)
   AlbWebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Public ALB Security Group (HTTP/HTTPS)"
+      GroupDescription: Public ALB SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-alb-web-sg"
 
-  # 2. Camada de Aplicação (Só aceita tráfego vindo do ALB)
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Application Tier Security Group (Port 8080)"
+      GroupDescription: App SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           SourceSecurityGroupId: !Ref AlbWebSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # 3. Camada de Dados (Só aceita tráfego vindo da App)
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Database Tier Security Group (PostgreSQL)"
+      GroupDescription: RDS SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref AppSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-rds-sg"
 
 Outputs:
   AlbWebSecurityGroupId:
-    Description: "ID do Security Group do Load Balancer"
     Value: !Ref AlbWebSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
+
   AppSecurityGroupId:
-    Description: "ID do Security Group da Aplicação"
     Value: !Ref AppSecurityGroup
-  RDSSecurityGroupId:
-    Description: "ID do Security Group do Banco de Dados"
-    Value: !Ref RDSSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSG"
