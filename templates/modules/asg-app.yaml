@@ -51,8 +51,8 @@ Resources:
             mkdir -p /opt/app
             cd /opt/app
 
-            # Baixar JAR da aplicação (substituir MEU-BUCKET pelo bucket real)
-            aws s3 cp s3://MEU-BUCKET/app/app.jar app.jar
+            # Baixar JAR da aplicação
+            aws s3 cp s3://stock-manager-prod-artifacts/app/app.jar app.jar
 
             chmod +x app.jar
 
