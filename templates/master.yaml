@@ -53,12 +53,6 @@ Resources:
         VpcId: !GetAtt VPCStack.Outputs.VpcId
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        PrivateDbSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateDbSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ2]]
-        CertificateARN: !Ref CertificateARN
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
 
   # 3. ALB Web
   ALBWebStack:
@@ -81,7 +75,9 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # 4. ASG App
+
+    
+    # 4. ASG App
   ASGAppStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: ALBWebStack
@@ -90,13 +86,16 @@ Resources:
       Parameters:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
+        PrivateAppSubnets: !Join
+          - ","
+          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
         AppTargetGroupArn: !GetAtt ALBWebStack.Outputs.WebTargetGroupArn
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
         InstanceType: !Ref AppInstanceType
         LatestAMIId: !Ref LatestAMIId
         KeyName: !Ref KeyName
+  
+
 
   # 5. RDS
   RDSStack:
