@@ -33,31 +33,30 @@ Resources:
         ImageId: !Ref LatestAMIId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyName
-
         SecurityGroupIds:
           - Fn::ImportValue:
               Fn::Sub: "${ProjectName}-${Environment}-AppSG"
-
         UserData:
           Fn::Base64: |
             #!/bin/bash
             set -xe
 
-            # Atualização básica
+            # Atualização do sistema
             yum update -y
 
-            # Java 21
+            # Instala Java 21 e AWS CLI
             yum install -y java-21-amazon-corretto awscli
 
             # Diretório da aplicação
             mkdir -p /opt/app
             cd /opt/app
 
+            # Baixar JAR da aplicação (substituir MEU-BUCKET pelo bucket real)
             aws s3 cp s3://MEU-BUCKET/app/app.jar app.jar
 
             chmod +x app.jar
 
-            # Sobe a aplicação na porta esperada pelo ALB
+            # Rodar a aplicação na porta 8080
             nohup java -jar app.jar \
               --server.port=8080 \
               > /var/log/app.log 2>&1 &
@@ -75,21 +74,16 @@ Resources:
     Properties:
       AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-app-asg"
       VPCZoneIdentifier: !Ref PrivateAppSubnets
-
       LaunchTemplate:
         LaunchTemplateId: !Ref AppLaunchTemplate
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
-
       MinSize: "1"
       MaxSize: "1"
       DesiredCapacity: "1"
-
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
-
       TargetGroupARNs:
         - !Ref AppTargetGroupArn
-
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app-server"
