@@ -63,12 +63,14 @@ Resources:
       CidrBlock: 10.0.12.0/24
       Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-web-az2" }]
 
+  # --- Subnets de Aplicação (CORRIGIDAS PARA IP PÚBLICO) ---
   PrivateAppAZ1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs "" ]
       CidrBlock: 10.0.21.0/24
+      MapPublicIpOnLaunch: true # Agora as instâncias nascem com IP Público
       Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az1" }]
 
   PrivateAppAZ2:
@@ -77,6 +79,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 1, !GetAZs "" ]
       CidrBlock: 10.0.22.0/24
+      MapPublicIpOnLaunch: true # Agora as instâncias nascem com IP Público
       Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az2" }]
 
   PrivateDbAZ1:
@@ -147,7 +150,6 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcId"
 
-  # Nomes sincronizados com a Master Stack
   PublicSubnetAZ1: { Value: !Ref PublicSubnetAZ1 }
   PublicSubnetAZ2: { Value: !Ref PublicSubnetAZ2 }
   PrivateAppSubnetAZ1: { Value: !Ref PrivateAppAZ1 }
