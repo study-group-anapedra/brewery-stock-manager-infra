@@ -35,7 +35,8 @@ Resources:
       VpcId: !Ref VpcId
       Protocol: HTTP
       Port: 8080
-      HealthCheckPath: /healthcheck # Certifique-se que seu Java tem essa rota
+      HealthCheckPath: /actuator/health
+
       TargetType: instance
       HealthCheckIntervalSeconds: 30
       HealthyThresholdCount: 2
