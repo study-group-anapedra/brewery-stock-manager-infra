@@ -54,7 +54,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # 3. ALB Web
+    # 3. ALB Web
   ALBWebStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityStack
@@ -64,16 +64,12 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt VPCStack.Outputs.VpcId
-        # Correção do Parâmetro faltante:
         AlbSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
-        PublicSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PublicSubnetAZ1, !GetAtt VPCStack.Outputs.PublicSubnetAZ2]]
-        PrivateAppSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2]]
-        PrivateDbSubnets: !Join [",", [!GetAtt VPCStack.Outputs.PrivateDbSubnetAZ1, !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ2]]
-        CertificateARN: !Ref CertificateARN
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
-        DBUsername: !Ref DBUsername
-        DBPassword: !Ref DBPassword
+        PublicSubnets: !Join 
+          - ","
+          - 
+            - !GetAtt VPCStack.Outputs.PublicSubnetAZ1
+            - !GetAtt VPCStack.Outputs.PublicSubnetAZ2
 
 
     
