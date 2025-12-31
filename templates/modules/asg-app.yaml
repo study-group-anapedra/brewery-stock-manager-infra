@@ -43,7 +43,6 @@ Resources:
           - Fn::ImportValue:
               Fn::Sub: "${ProjectName}-${Environment}-AppSG"
 
-        # USER DATA CORRIGIDO
         UserData:
           Fn::Base64: |
             #!/bin/bash
@@ -55,10 +54,19 @@ Resources:
             mkdir -p /opt/app
             cd /opt/app
 
-          
             aws s3 cp s3://stock-manager-prod-artifacts/app/app.jar app.jar
-
             chmod +x app.jar
+
+            # ===============================
+            # VARIÁVEIS DE AMBIENTE (CRÍTICO)
+            # ===============================
+            export DB_URL=stock-manager-prod-db.xxxxxxxxx.us-east-1.rds.amazonaws.com
+            export DB_USERNAME=admin
+            export DB_PASSWORD=StockManagerProd2025
+
+            echo "DB_URL=$DB_URL" >> /etc/environment
+            echo "DB_USERNAME=$DB_USERNAME" >> /etc/environment
+            echo "DB_PASSWORD=$DB_PASSWORD" >> /etc/environment
 
             nohup java -jar app.jar \
               --spring.profiles.active=prod \
@@ -102,4 +110,3 @@ Outputs:
   AsgName:
     Description: Auto Scaling Group Name
     Value: !Ref AppASG
-
