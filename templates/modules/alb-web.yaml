@@ -2,32 +2,39 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Application Load Balancer para o Backend Java
 
 Parameters:
-  Environment: { Type: String }
-  ProjectName: { Type: String }
-  VpcId: { Type: String }
-  PublicSubnets: { Type: String }
-  # Adicionei este parâmetro para receber o SG da Master Stack
-  AlbSecurityGroupId: { Type: String } 
-  PrivateAppSubnets: { Type: String }
-  PrivateDbSubnets: { Type: String }
-  CertificateARN: { Type: String }
-  LatestAMIId: { Type: String }
-  KeyName: { Type: String }
-  DBUsername: { Type: String }
-  DBPassword: { Type: String }
+  Environment:
+    Type: String
+
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnets:
+    Type: String
+    Description: Subnets públicas separadas por vírgula
+
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
 
 Resources:
-  # 1. O Load Balancer
+
+  # Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-alb"
-      Subnets: !Split [",", !Ref PublicSubnets]
-      SecurityGroups: 
-        - !Ref AlbSecurityGroupId # Agora usa o parâmetro direto
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-alb" }]
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Split [ ",", !Ref PublicSubnets ]
+      SecurityGroups:
+        - !Ref AlbSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-alb"
 
-  # 2. Target Group (Porta 8080 para o Postman/Java)
+  # Target Group (Backend Java)
   WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -35,13 +42,19 @@ Resources:
       VpcId: !Ref VpcId
       Protocol: HTTP
       Port: 8080
-      HealthCheckPath: /actuator/health
-
       TargetType: instance
-      HealthCheckIntervalSeconds: 30
-      HealthyThresholdCount: 2
 
-  # 3. Listener HTTP (Porta 80)
+      HealthCheckPath: /actuator/health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+
+      Matcher:
+        HttpCode: 200
+
+  # Listener HTTP (porta 80)
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -54,6 +67,9 @@ Resources:
 
 Outputs:
   ALBWebDNS:
+    Description: DNS público do ALB
     Value: !GetAtt ApplicationLoadBalancer.DNSName
+
   WebTargetGroupArn:
+    Description: ARN do Target Group
     Value: !Ref WebTargetGroup

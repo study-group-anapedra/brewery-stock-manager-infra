@@ -31,6 +31,7 @@ Resources:
       LaunchTemplateName: !Sub "${ProjectName}-${Environment}-app-lt"
       LaunchTemplateData:
 
+        # IAM ROLE (CRÍTICO)
         IamInstanceProfile:
           Name: stock-manager-ec2-role
 
@@ -42,6 +43,7 @@ Resources:
           - Fn::ImportValue:
               Fn::Sub: "${ProjectName}-${Environment}-AppSG"
 
+        # USER DATA CORRIGIDO
         UserData:
           Fn::Base64: |
             #!/bin/bash
@@ -53,10 +55,13 @@ Resources:
             mkdir -p /opt/app
             cd /opt/app
 
+          
             aws s3 cp s3://stock-manager-prod-artifacts/app/app.jar app.jar
+
             chmod +x app.jar
 
             nohup java -jar app.jar \
+              --spring.profiles.active=prod \
               --server.port=8080 \
               > /var/log/app.log 2>&1 &
 
@@ -97,3 +102,4 @@ Outputs:
   AsgName:
     Description: Auto Scaling Group Name
     Value: !Ref AppASG
+
