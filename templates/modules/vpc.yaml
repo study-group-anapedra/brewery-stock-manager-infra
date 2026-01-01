@@ -1,11 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Infrastructure - Public and Private Subnets across 2 AZs
+Description: VPC - Arquitetura monolítica com subnets públicas e privadas (corrigida)
 
 Parameters:
-  Environment: { Type: String, AllowedValues: [dev, prod] }
-  ProjectName: { Type: String }
+  Environment:
+    Type: String
+    AllowedValues: [dev, prod]
+
+  ProjectName:
+    Type: String
 
 Resources:
+
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -18,8 +23,6 @@ Resources:
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-igw" }]
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -27,91 +30,127 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # --- Subnets Públicas ---
+  # -------------------------
+  # Subnets Públicas
+  # -------------------------
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.1.0/24
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-az1" }]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-public-az1"
 
   PublicSubnetAZ2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.2.0/24
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-az2" }]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-public-az2"
 
-  # --- Subnets Privadas ---
+  # -------------------------
+  # Subnets Privadas - WEB
+  # -------------------------
   PrivateWebAZ1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.11.0/24
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-web-az1" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-web-az1"
 
   PrivateWebAZ2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.12.0/24
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-web-az2" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-web-az2"
 
-  # --- Subnets de Aplicação (CORRIGIDAS PARA IP PÚBLICO) ---
+  # -------------------------
+  # Subnets Privadas - APP
+  # -------------------------
   PrivateAppAZ1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.21.0/24
-      MapPublicIpOnLaunch: true # Agora as instâncias nascem com IP Público
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az1" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-app-az1"
 
   PrivateAppAZ2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.22.0/24
-      MapPublicIpOnLaunch: true # Agora as instâncias nascem com IP Público
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-app-az2" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-app-az2"
 
+  # -------------------------
+  # Subnets Privadas - DB
+  # -------------------------
   PrivateDbAZ1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.31.0/24
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-db-az1" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-db-az1"
 
   PrivateDbAZ2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.32.0/24
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-db-az2" }]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
-  # --- NAT Gateway ---
-  NatEIP: { Type: AWS::EC2::EIP, Properties: { Domain: vpc } }
+  # -------------------------
+  # NAT Gateway
+  # -------------------------
+  NatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
   NatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt NatEIP.AllocationId
+      AllocationId: !GetAtt NatEip.AllocationId
       SubnetId: !Ref PublicSubnetAZ1
 
-  # --- Tabelas de Rotas ---
+  # -------------------------
+  # Route Tables
+  # -------------------------
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-public-rt" }]
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -125,7 +164,6 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-      Tags: [{ Key: Name, Value: !Sub "${ProjectName}-${Environment}-private-rt" }]
 
   PrivateRoute:
     Type: AWS::EC2::Route
@@ -134,25 +172,57 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  # --- Associações ---
-  PubAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ1, RouteTableId: !Ref PublicRouteTable } }
-  PubAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PublicSubnetAZ2, RouteTableId: !Ref PublicRouteTable } }
-  WebAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateWebAZ1, RouteTableId: !Ref PrivateRouteTable } }
-  WebAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateWebAZ2, RouteTableId: !Ref PrivateRouteTable } }
-  AppAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateAppAZ1, RouteTableId: !Ref PrivateRouteTable } }
-  AppAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateAppAZ2, RouteTableId: !Ref PrivateRouteTable } }
-  DbAssoc1: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateDbAZ1, RouteTableId: !Ref PrivateRouteTable } }
-  DbAssoc2: { Type: AWS::EC2::SubnetRouteTableAssociation, Properties: { SubnetId: !Ref PrivateDbAZ2, RouteTableId: !Ref PrivateRouteTable } }
+  # -------------------------
+  # Associations
+  # -------------------------
+  PublicAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAZ1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAZ2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateAssocWeb1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateWebAZ1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssocWeb2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateWebAZ2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssocApp1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateAppAZ1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssocApp2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateAppAZ2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssocDb1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateDbAZ1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssocDb2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateDbAZ2
+      RouteTableId: !Ref PrivateRouteTable
 
 Outputs:
-  VpcId: 
+  VpcId:
     Value: !Ref VPC
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-VpcId"
-
-  PublicSubnetAZ1: { Value: !Ref PublicSubnetAZ1 }
-  PublicSubnetAZ2: { Value: !Ref PublicSubnetAZ2 }
-  PrivateAppSubnetAZ1: { Value: !Ref PrivateAppAZ1 }
-  PrivateAppSubnetAZ2: { Value: !Ref PrivateAppAZ2 }
-  PrivateDbSubnetAZ1: { Value: !Ref PrivateDbAZ1 }
-  PrivateDbSubnetAZ2: { Value: !Ref PrivateDbAZ2 }
