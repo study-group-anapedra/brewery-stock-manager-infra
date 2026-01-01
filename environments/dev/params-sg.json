@@ -1,0 +1,5 @@
+[
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "Environment", "ParameterValue": "dev" }
+]
+

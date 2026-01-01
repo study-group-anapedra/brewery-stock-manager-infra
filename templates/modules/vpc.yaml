@@ -222,7 +222,16 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateDbAZ2
       RouteTableId: !Ref PrivateRouteTable
-
+      
 Outputs:
   VpcId:
+    Description: VPC Id
     Value: !Ref VPC
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-VpcId"
+
+   
+
+  
+  
+  
