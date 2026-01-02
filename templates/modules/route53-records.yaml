@@ -29,5 +29,7 @@ Outputs:
   DomainURL:
     Description: "URL final do projeto"
     Value: !Sub "https://${DomainName}"
-    
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DomainURL"
+
     
