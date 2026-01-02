@@ -4,31 +4,42 @@ Description: Módulo de Banco de Dados - Aurora PostgreSQL 15.7
 Parameters:
   ProjectName:
     Type: String
+
   Environment:
     Type: String
+
   DBUsername:
     Type: String
     Default: admin
+
   DBPassword:
     Type: String
     NoEcho: true
+
   DBName:
     Type: String
     Default: stockmanagerprod
+
   DBInstanceClass:
     Type: String
     Default: db.t3.medium
 
 Resources:
 
+  # ==================================================
+  # DB Subnet Group (subnets privadas de DB)
+  # ==================================================
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnets privadas para o Aurora
+      DBSubnetGroupDescription: Subnets privadas para Aurora PostgreSQL
       SubnetIds:
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
+  # ==================================================
+  # Aurora Cluster
+  # ==================================================
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
@@ -42,7 +53,11 @@ Resources:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
       BackupRetentionPeriod: 7
       StorageEncrypted: true
+      DeletionProtection: false
 
+  # ==================================================
+  # Aurora Instance
+  # ==================================================
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
@@ -52,6 +67,7 @@ Resources:
       PubliclyAccessible: false
 
 Outputs:
+
   DBEndpoint:
     Description: Endpoint do Cluster Aurora
     Value: !GetAtt DBCluster.Endpoint.Address
