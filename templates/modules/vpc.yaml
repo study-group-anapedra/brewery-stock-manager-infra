@@ -230,30 +230,19 @@ Outputs:
 
   VpcId:
     Value: !Ref VPC
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
 
   PublicSubnetAZ1:
     Value: !Ref PublicSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-public-subnet-az1-${Environment}"
 
   PublicSubnetAZ2:
     Value: !Ref PublicSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-public-subnet-az2-${Environment}"
 
-  PrivateWebSubnetAZ1:
-    Value: !Ref PrivateWebAZ1
-
-  PrivateWebSubnetAZ2:
-    Value: !Ref PrivateWebAZ2
-
-  PrivateAppSubnetAZ1:
-    Value: !Ref PrivateAppAZ1
-
-  PrivateAppSubnetAZ2:
-    Value: !Ref PrivateAppAZ2
-
-  PrivateDbSubnetAZ1:
-    Value: !Ref PrivateDbAZ1
-
-  PrivateDbSubnetAZ2:
-    Value: !Ref PrivateDbAZ2
 
 
   
