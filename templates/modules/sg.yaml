@@ -10,15 +10,12 @@ Parameters:
 
 Resources:
 
-  # =========================
-  # ALB Security Group
-  # =========================
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB SG
       VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-${Environment}-VpcId"
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -35,15 +32,12 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-alb-sg"
 
-  # =========================
-  # App Security Group
-  # =========================
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: App SG
       VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-${Environment}-VpcId"
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
@@ -56,15 +50,12 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # =========================
-  # DB Security Group
-  # =========================
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: DB SG
       VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-${Environment}-VpcId"
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
