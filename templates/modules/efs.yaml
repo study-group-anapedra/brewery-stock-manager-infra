@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EFS para compartilhamento de arquivos entre instâncias do ASG
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+Resources:
+
+  # ==================================================
+  # Security Group do EFS
+  # ==================================================
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EFS SG
+      VpcId:
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-efs-sg"
+
+  # ==================================================
+  # File System
+  # ==================================================
+  EfsFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-efs"
+
+  # ==================================================
+  # Mount Targets (uma por AZ privada APP)
+  # ==================================================
+  EfsMountTargetAz1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EfsFileSystem
+      SubnetId:
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+  EfsMountTargetAz2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EfsFileSystem
+      SubnetId:
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+Outputs:
+  EfsFileSystemId:
+    Description: ID do EFS
+    Value: !Ref EfsFileSystem
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-EfsId"
