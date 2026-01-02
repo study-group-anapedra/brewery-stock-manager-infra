@@ -57,12 +57,15 @@ Resources:
           MinimumProtocolVersion: TLSv1.2_2021
 
 Outputs:
-  CloudFrontDomainName:
+  CloudFrontDNS:
+    Description: CloudFront distribution domain name
     Value: !GetAtt CloudFrontDistribution.DomainName
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDomain"
+      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDNS"
 
-  CloudFrontDistributionId:
-    Value: !Ref CloudFrontDistribution
+  CloudFrontHostedZoneId:
+    Description: Hosted Zone ID for CloudFront (Route53 Alias)
+    Value: Z2FDTNDATAQYW2
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDistributionId"
+      Name: !Sub "${ProjectName}-${Environment}-CloudFrontHostedZoneId"
+
