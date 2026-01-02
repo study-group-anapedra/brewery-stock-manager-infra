@@ -1,0 +1,67 @@
+name: Deploy Master Infrastructure
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+  PROJECT_NAME: stock-manager
+  STACK_NAME_INFRA: stock-manager-master-dev
+  STACK_NAME_DNS: stock-manager-dns-dev
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: aws s3 sync templates/modules s3://${{ secrets.S3_BUCKET }}/modules
+
+      - run: |
+          aws cloudformation deploy \
+            --template-file templates/master.yaml \
+            --stack-name ${{ env.STACK_NAME_INFRA }} \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              Environment=${{ env.ENVIRONMENT }} \
+              CertificateARN=${{ secrets.CERTIFICATE_ARN }} \
+              DomainName=api.asantanadev.com \
+              LatestAMIId=ami-0c101f26f147fa7fd \
+              KeyName=chave-estoque-prod \
+              DBUsername=${{ secrets.DB_USERNAME }} \
+              DBPassword=${{ secrets.DB_PASSWORD }} \
+              AppInstanceType=t3.small \
+              DBInstanceClass=db.t3.micro
+
+  deploy-dns:
+    needs: deploy-infra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: |
+          aws cloudformation deploy \
+            --template-file templates/modules/route53-records.yaml \
+            --stack-name ${{ env.STACK_NAME_DNS }} \
+            --parameter-overrides \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              Environment=${{ env.ENVIRONMENT }} \
+              HostedZoneId=Z0620408R15AZPT367P2 \
+              DomainName=api.asantanadev.com
