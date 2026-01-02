@@ -26,6 +26,7 @@ Resources:
         EvaluateTargetHealth: false
 
 Outputs:
-  Route53RecordName:
-    Value: !Ref DomainName
-
+  DomainURL:
+    Description: "URL final do projeto"
+    Value: !Sub "https://${DomainName}"
+    
