@@ -1,27 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura Gerenciada (11 Módulos) - FINAL CORRETO
+Description: Master Stack - Infraestrutura completa (sem DNS e sem aplicação)
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues: [dev, prod]
 
   ProjectName:
     Type: String
 
-  ArtifactsBucket:
-    Type: String
-    Description: Bucket S3 onde estão os templates dos módulos
-
-  DomainName:
-    Type: String
-
-  HostedZoneId:
+  Environment:
     Type: String
 
   CertificateARN:
     Type: String
-    Description: ARN do certificado ACM (us-east-1)
+
+  DomainName:
+    Type: String
 
   LatestAMIId:
     Type: AWS::EC2::Image::Id
@@ -29,199 +21,197 @@ Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
 
-  WebInstanceType:
-    Type: String
-    Default: t3.micro
-
   AppInstanceType:
     Type: String
-    Default: t3.small
 
   DBInstanceClass:
     Type: String
-    Default: db.t3.micro
-
-  DBName:
-    Type: String
-    Default: stockmanager
 
   DBUsername:
     Type: String
-
+    
   DBPassword:
     Type: String
     NoEcho: true
 
 Resources:
 
-  # 1. VPC
+  # ==================================================
+  # VPC
+  # ==================================================
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/vpc.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/vpc.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
 
-  # 2. Security Groups
-  SecurityStack:
+  # ==================================================
+  # SECURITY GROUPS
+  # ==================================================
+  SecurityGroupsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VPCStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/security-groups.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/sg.yaml"
       Parameters:
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # 3. ALB Web
-  ALBWebStack:
+  # ==================================================
+  # ALB
+  # ==================================================
+  AlbStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
+    DependsOn: SecurityGroupsStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/alb-web.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/alb.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PublicSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PublicSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PublicSubnetAZ2
-        ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
+        Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
 
-  # 4. ASG Web
-  ASGWebStack:
+  # ==================================================
+  # RDS
+  # ==================================================
+  RdsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ALBWebStack
+    DependsOn: SecurityGroupsStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/asg-web.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/rds.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateWebSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PrivateWebSubnetAZ2
-        WebTargetGroupArn: !GetAtt ALBWebStack.Outputs.WebTargetGroupArn
-        ALBWebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
-        InstanceType: !Ref WebInstanceType
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
+        Environment: !Ref Environment
+        DBUsername: !Ref DBUsername
+        DBPassword: !Ref DBPassword
+        DBInstanceClass: !Ref DBInstanceClass
 
-  # 5. ALB App
-  ALBAppStack:
+  # ==================================================
+  # ELASTICACHE
+  # ==================================================
+  RedisStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
+    DependsOn: SecurityGroupsStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/alb-app.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/elasticache.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
-        WebSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbWebSecurityGroupId
+        Environment: !Ref Environment
 
-  # 6. ASG App
-  ASGAppStack:
+  # ==================================================
+  # EFS
+  # ==================================================
+  EfsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ALBAppStack
+    DependsOn: SecurityGroupsStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/asg-app.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/efs.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
-        AppTargetGroupArn: !GetAtt ALBAppStack.Outputs.AppTargetGroupArn
-        InstanceType: !Ref AppInstanceType
-        LatestAMIId: !Ref LatestAMIId
-        KeyName: !Ref KeyName
+        Environment: !Ref Environment
 
-  # 7. RDS
-  RDSStack:
+  # ==================================================
+  # ASG / COMPUTE
+  # ==================================================
+  AsgStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
-      - VPCStack
-      - SecurityStack
+      - AlbStack
+      - RdsStack
+      - RedisStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/rds.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/asg.yaml"
       Parameters:
+        ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateSubnetA: !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ1
-        PrivateSubnetB: !GetAtt VPCStack.Outputs.PrivateDbSubnetAZ2
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
-        DBInstanceClass: !Ref DBInstanceClass
-        DBName: !Ref DBName
+        AmiId: !Ref LatestAMIId
+        InstanceType: !Ref AppInstanceType
+        KeyPairName: !Ref KeyName
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # 8. Redis
-  RedisStack:
+  # ==================================================
+  # CLOUDWATCH LOG GROUP (APP)
+  # ==================================================
+  CloudWatchLogsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SecurityStack
+    DependsOn: AsgStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/elasticache.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-ec2-logs.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
+        Environment: !Ref Environment
 
-  # 9. EFS
-  EFSStack:
+  # ==================================================
+  # CLOUDWATCH ALARMS - ALB
+  # ==================================================
+  AlbAlarmsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SecurityStack
+    DependsOn: AlbStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/efs.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-alb.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        VpcId: !GetAtt VPCStack.Outputs.VpcId
-        PrivateAppSubnets: !Join
-          - ","
-          - - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ1
-            - !GetAtt VPCStack.Outputs.PrivateAppSubnetAZ2
-        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
+        Environment: !Ref Environment
 
-  # 10. Edge / CloudFront
-  EdgeStack:
+  # ==================================================
+  # CLOUDWATCH ALARMS - ASG
+  # ==================================================
+  AsgAlarmsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ALBWebStack
+    DependsOn: AsgStack
     Properties:
-      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.${AWS::Region}.amazonaws.com/modules/edge.yaml"
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-asg.yaml"
       Parameters:
-        Environment: !Ref Environment
         ProjectName: !Ref ProjectName
-        DomainName: !Ref DomainName
-        HostedZoneId: !Ref HostedZoneId
+        Environment: !Ref Environment
+
+  # ==================================================
+  # CLOUDWATCH ALB ACCESS LOGS
+  # ==================================================
+  AlbLogsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AlbStack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alb-logs.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  # ==================================================
+  # CLOUDFRONT
+  # ==================================================
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AlbStack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudfront.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
-        ALBDomainName: !GetAtt ALBWebStack.Outputs.ALBWebDNS
+        DomainName: !Ref DomainName
+
+  # ==================================================
+  # WAF (CLOUDFRONT)
+  # ==================================================
+  WafStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: CloudFrontStack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/waf-cloudfront.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
 
 Outputs:
   WebsiteURL:
-    Description: URL pública da aplicação
+    Description: "URL pública da aplicação"
     Value: !Sub "https://${DomainName}"
 
   CloudFrontDNSForRoute53:
-    Description: DNS do CloudFront para uso no Route53
-    Value: !GetAtt EdgeStack.Outputs.CloudFrontDNS
+    Description: "DNS do CloudFront para ser usado no Job 2"
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
     Export:
       Name: !Sub "${AWS::StackName}-CF-DNS"
