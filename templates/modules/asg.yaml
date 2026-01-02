@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Módulo de Computação - Produção (ASG + IAM)
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+  DBUsername:
+    Type: String
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+
+  # ==================================================
+  # IAM Role da EC2 (CORRIGIDA E FINAL)
+  # ==================================================
+  AppInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref AppInstanceRole
+
+  # ==================================================
+  # Launch Template
+  # ==================================================
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-lt"
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Name: !Ref AppInstanceProfile
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+          - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
+
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                yum update -y
+                yum install -y java-21-amazon-corretto awscli awslogs
+
+                systemctl start awslogsd
+                systemctl enable awslogsd
+
+                cat <<EOF > /etc/awslogs/awslogs.conf
+                [general]
+                state_file = /var/lib/awslogs/agent-state
+
+                [/var/log/app.log]
+                file = /var/log/app.log
+                log_group_name = /${ProjectName}/${Environment}/application
+                log_stream_name = {instance_id}
+                EOF
+
+                systemctl restart awslogsd
+
+                mkdir -p /opt/app
+                cd /opt/app
+
+                aws s3 cp s3://${ProjectName}-${Environment}-artifacts/app.jar app.jar
+
+                export DB_URL=${RDSUrl}
+                export DB_USERNAME=${DBUsername}
+                export DB_PASSWORD=${DBPassword}
+
+                nohup java -jar app.jar \
+                  --spring.profiles.active=prod \
+                  --server.port=8080 > /var/log/app.log 2>&1 &
+              - RDSUrl:
+                  Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
+
+  # ==================================================
+  # Auto Scaling Group
+  # ==================================================
+  AppAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      MinSize: "2"
+      MaxSize: "4"
+      DesiredCapacity: "2"
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+      TargetGroupARNs:
+        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+
+Outputs:
+  AsgName:
+    Value: !Ref AppAsg
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AsgName"

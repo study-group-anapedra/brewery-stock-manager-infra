@@ -1,0 +1,11 @@
+[
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "Environment", "ParameterValue": "dev" },
+
+  { "ParameterKey": "AmiId", "ParameterValue": "ami-0ca688f4217aab61b" },
+  { "ParameterKey": "KeyPairName", "ParameterValue": "chave-estoque-prod" },
+  { "ParameterKey": "InstanceType", "ParameterValue": "t3.medium" },
+
+  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" }
+]
