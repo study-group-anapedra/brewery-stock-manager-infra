@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Route 53 - Record A (Alias) apontando para ALB
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  HostedZoneId:
+    Type: String
+  DomainName:
+    Type: String
+
+Resources:
+  AlbAliasRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AlbDnsName"
+        HostedZoneId:
+          Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AlbHostedZoneId"
+        EvaluateTargetHealth: false
+
+Outputs:
+  Route53RecordName:
+    Value: !Ref DomainName
+
