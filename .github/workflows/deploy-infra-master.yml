@@ -10,58 +10,79 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ENVIRONMENT: dev
-  PROJECT_NAME: stock-manager
+  S3_BUCKET: stock-manager-prod-artifacts
   STACK_NAME_INFRA: stock-manager-master-dev
   STACK_NAME_DNS: stock-manager-dns-dev
+  DOMAIN_NAME: api.asantanadev.com 
+  ENVIRONMENT: dev
+  PROJECT_NAME: stock-manager
 
 jobs:
+  # JOB 1: INFRA BASE
   deploy-infra:
+    name: Deploy Base Infrastructure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - run: aws s3 sync templates/modules s3://${{ secrets.S3_BUCKET }}/modules
+      - name: Upload Modules to S3
+        run: aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
 
-      - run: |
-          aws cloudformation deploy \
+      - name: CloudFormation Package
+        run: |
+          aws cloudformation package \
             --template-file templates/master.yaml \
+            --s3-bucket ${{ env.S3_BUCKET }} \
+            --output-template-file packaged-master.yaml
+
+      - name: Deploy Master Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file packaged-master.yaml \
             --stack-name ${{ env.STACK_NAME_INFRA }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
-              ProjectName=${{ env.PROJECT_NAME }} \
               Environment=${{ env.ENVIRONMENT }} \
-              CertificateARN=${{ secrets.CERTIFICATE_ARN }} \
-              DomainName=api.asantanadev.com \
+              ProjectName=${{ env.PROJECT_NAME }} \
+              DomainName=${{ env.DOMAIN_NAME }} \
+              CertificateARN=arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096 \
               LatestAMIId=ami-0c101f26f147fa7fd \
               KeyName=chave-estoque-prod \
-              DBUsername=${{ secrets.DB_USERNAME }} \
+              HostedZoneId=Z0620408R15AZPT367P2 \
+              DBUsername=stock_user_dev \
               DBPassword=${{ secrets.DB_PASSWORD }} \
+              WebInstanceType=t3.micro \
               AppInstanceType=t3.small \
               DBInstanceClass=db.t3.micro
 
+  # JOB 2: DNS
   deploy-dns:
-    needs: deploy-infra
+    name: Deploy DNS Records
     runs-on: ubuntu-latest
+    needs: deploy-infra
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - run: |
+      - name: Deploy Route53 Stack
+        run: |
           aws cloudformation deploy \
-            --template-file templates/modules/route53-records.yaml \
+            --template-file templates/modules/route53.yaml \
             --stack-name ${{ env.STACK_NAME_DNS }} \
             --parameter-overrides \
-              ProjectName=${{ env.PROJECT_NAME }} \
-              Environment=${{ env.ENVIRONMENT }} \
+              DomainName=${{ env.DOMAIN_NAME }} \
               HostedZoneId=Z0620408R15AZPT367P2 \
-              DomainName=api.asantanadev.com
+              ParentStackName=${{ env.STACK_NAME_INFRA }}
