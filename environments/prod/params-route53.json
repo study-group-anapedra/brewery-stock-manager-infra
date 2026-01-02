@@ -1,0 +1,6 @@
+[
+  { "ParameterKey": "Environment", "ParameterValue": "prod" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "DomainName", "ParameterValue": "api.asantanadev.com" },
+  { "ParameterKey": "HostedZoneId", "ParameterValue": "Z0620408R15AZPT367P2" }
+]

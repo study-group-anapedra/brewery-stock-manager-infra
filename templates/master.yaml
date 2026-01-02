@@ -211,6 +211,6 @@ Outputs:
 
   CloudFrontDNSForRoute53:
     Description: "DNS do CloudFront para ser usado no Job 2"
-    Value: !GetAtt CloudWatchLogsStack.Outputs.CloudFrontDNS
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
     Export:
       Name: !Sub "${AWS::StackName}-CF-DNS"

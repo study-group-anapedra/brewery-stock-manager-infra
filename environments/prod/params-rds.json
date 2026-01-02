@@ -1,0 +1,8 @@
+[
+  { "ParameterKey": "Environment", "ParameterValue": "prod" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" },
+  { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
+  { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t3.micro" }
+]

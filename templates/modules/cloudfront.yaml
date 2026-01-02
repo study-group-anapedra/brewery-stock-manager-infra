@@ -57,15 +57,12 @@ Resources:
           MinimumProtocolVersion: TLSv1.2_2021
 
 Outputs:
+  # Alterado para 'CloudFrontDNS' para bater com o que o master.yaml espera
   CloudFrontDNS:
-    Description: CloudFront distribution domain name
+    Description: "CloudFront distribution domain name"
     Value: !GetAtt CloudFrontDistribution.DomainName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDNS"
 
   CloudFrontHostedZoneId:
-    Description: Hosted Zone ID for CloudFront (Route53 Alias)
+    Description: "Hosted Zone ID for CloudFront (Route53 Alias)"
     Value: Z2FDTNDATAQYW2
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontHostedZoneId"
 

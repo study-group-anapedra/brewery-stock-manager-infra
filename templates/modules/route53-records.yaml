@@ -30,3 +30,4 @@ Outputs:
     Description: "URL final do projeto"
     Value: !Sub "https://${DomainName}"
     
+    
