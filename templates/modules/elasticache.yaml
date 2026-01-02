@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ElastiCache Redis para camada de cache da aplicação
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  CacheNodeType:
+    Type: String
+    Default: cache.t3.micro
+
+Resources:
+
+  # ==================================================
+  # Subnet Group do Redis (subnets privadas APP)
+  # ==================================================
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnets privadas para Redis
+      SubnetIds:
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+
+  # ==================================================
+  # Security Group do Redis
+  # ==================================================
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Redis SG
+      VpcId:
+        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-redis-sg"
+
+  # ==================================================
+  # Redis Cluster (Single Node – custo controlado)
+  # ==================================================
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      EngineVersion: "7.0"
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      Port: 6379
+
+Outputs:
+  RedisEndpoint:
+    Description: Endpoint do Redis
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-RedisEndpoint"
