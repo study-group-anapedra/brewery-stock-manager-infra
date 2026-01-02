@@ -224,12 +224,51 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
       
 Outputs:
+
   VpcId:
-    Description: VPC Id
     Value: !Ref VPC
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-VpcId"
+      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
 
+  PublicSubnetAz1:
+    Value: !Ref PublicSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az1"
+
+  PublicSubnetAz2:
+    Value: !Ref PublicSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az2"
+
+  PrivateWebSubnetAz1:
+    Value: !Ref PrivateWebAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-web-az1"
+
+  PrivateWebSubnetAz2:
+    Value: !Ref PrivateWebAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-web-az2"
+
+  PrivateAppSubnetAz1:
+    Value: !Ref PrivateAppAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+
+  PrivateAppSubnetAz2:
+    Value: !Ref PrivateAppAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+
+  PrivateDbSubnetAz1:
+    Value: !Ref PrivateDbAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
+
+  PrivateDbSubnetAz2:
+    Value: !Ref PrivateDbAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
    
 
   
