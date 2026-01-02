@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudWatch Alarms para Application Load Balancer
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+Resources:
+
+  # ==================================================
+  # Alarm: ALB 5XX Errors
+  # ==================================================
+  Alb5xxErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-alb-5xx-errors"
+      AlarmDescription: Alarm dispara se ALB retornar erros 5XX
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value:
+            Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AlbFullName"
+      TreatMissingData: notBreaching
+
+  # ==================================================
+  # Alarm: Unhealthy Hosts
+  # ==================================================
+  AlbUnhealthyHostsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-alb-unhealthy-hosts"
+      AlarmDescription: Alarm dispara se existirem targets unhealthy
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value:
+            Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AlbFullName"
+      TreatMissingData: notBreaching
+
+Outputs:
+  Alb5xxAlarmName:
+    Value: !Ref Alb5xxErrorsAlarm
+
+  AlbUnhealthyHostsAlarmName:
+    Value: !Ref AlbUnhealthyHostsAlarm

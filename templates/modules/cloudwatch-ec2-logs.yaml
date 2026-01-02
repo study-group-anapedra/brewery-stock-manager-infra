@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudWatch Log Group para aplicação Java nas EC2 do ASG
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+Resources:
+
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/${ProjectName}/${Environment}/application"
+      RetentionInDays: 30
+
+Outputs:
+  ApplicationLogGroupName:
+    Value: !Ref ApplicationLogGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ApplicationLogGroup"

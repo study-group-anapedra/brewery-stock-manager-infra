@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudWatch Alarm para Auto Scaling Group
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+
+Resources:
+  AsgHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-asg-high-cpu"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 75
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !ImportValue
+            Fn::Sub: "${ProjectName}-${Environment}-AsgName"
+      TreatMissingData: notBreaching
+
+Outputs:
+  AsgHighCPUAlarmName:
+    Value: !Ref AsgHighCPUAlarm
+
