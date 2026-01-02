@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC - Arquitetura monolítica com subnets públicas e privadas (corrigida)
+Description: VPC - Arquitetura monolítica com subnets públicas e privadas (FINAL CORRETO)
 
 Parameters:
   Environment:
@@ -11,6 +11,9 @@ Parameters:
 
 Resources:
 
+  # =========================
+  # VPC
+  # =========================
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -30,9 +33,9 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # -------------------------
+  # =========================
   # Subnets Públicas
-  # -------------------------
+  # =========================
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -55,9 +58,9 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-public-az2"
 
-  # -------------------------
+  # =========================
   # Subnets Privadas - WEB
-  # -------------------------
+  # =========================
   PrivateWebAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -80,9 +83,9 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-private-web-az2"
 
-  # -------------------------
+  # =========================
   # Subnets Privadas - APP
-  # -------------------------
+  # =========================
   PrivateAppAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -105,9 +108,9 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-private-app-az2"
 
-  # -------------------------
+  # =========================
   # Subnets Privadas - DB
-  # -------------------------
+  # =========================
   PrivateDbAZ1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -130,9 +133,9 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
-  # -------------------------
+  # =========================
   # NAT Gateway
-  # -------------------------
+  # =========================
   NatEip:
     Type: AWS::EC2::EIP
     Properties:
@@ -144,9 +147,9 @@ Resources:
       AllocationId: !GetAtt NatEip.AllocationId
       SubnetId: !Ref PublicSubnetAZ1
 
-  # -------------------------
+  # =========================
   # Route Tables
-  # -------------------------
+  # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -172,9 +175,9 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  # -------------------------
+  # =========================
   # Associations
-  # -------------------------
+  # =========================
   PublicAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -222,54 +225,36 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateDbAZ2
       RouteTableId: !Ref PrivateRouteTable
-      
+
 Outputs:
 
   VpcId:
     Value: !Ref VPC
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
 
-  PublicSubnetAz1:
+  PublicSubnetAZ1:
     Value: !Ref PublicSubnetAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az1"
 
-  PublicSubnetAz2:
+  PublicSubnetAZ2:
     Value: !Ref PublicSubnetAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az2"
 
-  PrivateWebSubnetAz1:
+  PrivateWebSubnetAZ1:
     Value: !Ref PrivateWebAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-web-az1"
 
-  PrivateWebSubnetAz2:
+  PrivateWebSubnetAZ2:
     Value: !Ref PrivateWebAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-web-az2"
 
-  PrivateAppSubnetAz1:
+  PrivateAppSubnetAZ1:
     Value: !Ref PrivateAppAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
 
-  PrivateAppSubnetAz2:
+  PrivateAppSubnetAZ2:
     Value: !Ref PrivateAppAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
 
-  PrivateDbSubnetAz1:
+  PrivateDbSubnetAZ1:
     Value: !Ref PrivateDbAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
 
-  PrivateDbSubnetAz2:
+  PrivateDbSubnetAZ2:
     Value: !Ref PrivateDbAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
-   
+
 
   
   
