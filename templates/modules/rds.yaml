@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Módulo de Banco de Dados - Aurora PostgreSQL 15.7
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  DBUsername:
+    Type: String
+    Default: admin
+  DBPassword:
+    Type: String
+    NoEcho: true
+  DBName:
+    Type: String
+    Default: stockmanagerprod
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.medium
+
+Resources:
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets privadas para o Aurora
+      SubnetIds:
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
+
+  DBCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DatabaseName: !Ref DBName
+      Engine: aurora-postgresql
+      EngineVersion: "15.7"
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
+      BackupRetentionPeriod: 7
+      StorageEncrypted: true
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DBCluster
+      Engine: aurora-postgresql
+      DBInstanceClass: !Ref DBInstanceClass
+      PubliclyAccessible: false
+
+Outputs:
+  DBEndpoint:
+    Description: Endpoint do Cluster Aurora
+    Value: !GetAtt DBCluster.Endpoint.Address
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"

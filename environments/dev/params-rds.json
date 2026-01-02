@@ -1,0 +1,7 @@
+[
+  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
+  { "ParameterKey": "Environment", "ParameterValue": "dev" },
+ { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" }
+]
