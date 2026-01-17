@@ -4,25 +4,20 @@ Description: Módulo de Banco de Dados - Aurora PostgreSQL
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-
   DBUsername:
     Type: String
-    Default: dbadmin   # nunca admin, root ou postgres
-
+    Default: dbadmin
   DBPassword:
     Type: String
     NoEcho: true
-
   DBName:
     Type: String
     Default: stockmanagerprod
-
   DBInstanceClass:
     Type: String
-    Default: db.t4g.medium   # padrão seguro para Aurora hoje
+    Default: db.t4g.medium
 
 Resources:
 
@@ -37,8 +32,9 @@ Resources:
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
-      DatabaseName: !Ref DBName
       Engine: aurora-postgresql
+      EngineVersion: "15.4" 
+      DatabaseName: !Ref DBName
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
@@ -51,8 +47,9 @@ Resources:
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBClusterIdentifier: !Ref DBCluster
       Engine: aurora-postgresql
+      EngineVersion: "15.4" 
+      DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       PubliclyAccessible: false
 
