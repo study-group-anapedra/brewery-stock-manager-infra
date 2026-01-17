@@ -36,7 +36,8 @@ Parameters:
     
   DBName:
     Type: String
-    Description: Nome do banco de dados
+    Default: "stockmanagerprod"
+    Description: "Nome do banco de dados que será criado"
 
 Resources:
 
