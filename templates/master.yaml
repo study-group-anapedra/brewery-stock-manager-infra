@@ -140,9 +140,19 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  WafStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/waf-cloudfront.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: AlbStack
+    DependsOn: 
+      - AlbStack
+      - WafStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudfront.yaml"
       Parameters:
@@ -150,15 +160,7 @@ Resources:
         Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
         DomainName: !Ref DomainName
-
-  WafStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: CloudFrontStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/waf-cloudfront.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
+        WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
 
 Outputs:
   WebsiteURL:

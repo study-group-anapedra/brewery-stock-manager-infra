@@ -10,6 +10,9 @@ Parameters:
     Type: String
   DomainName:
     Type: String
+  # NOVO: Parâmetro para receber o ARN do WAF do módulo anterior
+  WebACLArn:
+    Type: String
 
 Resources:
   CloudFrontDistribution:
@@ -17,6 +20,8 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
+        # NOVO: Aqui é onde a mágica acontece. O WAF é conectado aqui.
+        WebACLId: !Ref WebACLArn
         Comment: !Sub "${ProjectName}-${Environment}-cloudfront"
 
         Aliases:
@@ -69,7 +74,6 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-CloudFrontHostedZoneId"
 
-  
   CloudFrontDistributionId:
     Description: "ID da distribuicao para o WAF"
     Value: !Ref CloudFrontDistribution

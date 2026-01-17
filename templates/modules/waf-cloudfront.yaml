@@ -1,15 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: WAF v2 associado ao CloudFront (proteção L7 básica)
+Description: WAF v2 para CloudFront (proteção L7 básica)
 
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
 
 Resources:
-
   # ==================================================
   # Web ACL do WAF
   # ==================================================
@@ -17,14 +15,13 @@ Resources:
     Type: AWS::WAFv2::WebACL
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-cloudfront-waf"
-      Scope: CLOUDFRONT
+      Scope: CLOUDFRONT # Essencial para CloudFront
       DefaultAction:
         Allow: {}
       VisibilityConfig:
         CloudWatchMetricsEnabled: true
         MetricName: !Sub "${ProjectName}-${Environment}-waf"
         SampledRequestsEnabled: true
-
       Rules:
         # Proteção contra SQL Injection
         - Name: AWS-AWSManagedRulesSQLiRuleSet
@@ -54,19 +51,9 @@ Resources:
             MetricName: CommonRules
             SampledRequestsEnabled: true
 
-  # ==================================================
-  # Associação do WAF ao CloudFront
-  # ==================================================
-  CloudFrontWebACLAssociation:
-    Type: AWS::WAFv2::WebACLAssociation
-    Properties:
-      ResourceArn:
-        Fn::ImportValue: !Sub "${ProjectName}-${Environment}-CloudFrontDistributionId"
-      WebACLArn: !GetAtt CloudFrontWebACL.Arn
-
 Outputs:
   WebACLArn:
-    Description: ARN do WAF associado ao CloudFront
+    Description: ARN do WAF para ser usado no CloudFront
     Value: !GetAtt CloudFrontWebACL.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-WafArn"
