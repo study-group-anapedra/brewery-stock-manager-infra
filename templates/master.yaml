@@ -33,6 +33,10 @@ Parameters:
   DBPassword:
     Type: String
     NoEcho: true
+    
+  DBName:
+    Type: String
+    Description: Nome do banco de dados
 
 Resources:
 
@@ -85,6 +89,7 @@ Resources:
         Environment: !Ref Environment
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
+        DBName: !Ref DBName
         DBInstanceClass: !Ref DBInstanceClass
 
   # ==================================================
