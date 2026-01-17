@@ -68,7 +68,8 @@ jobs:
               KeyName=chave-estoque-prod \
               DBUsername=${{ secrets.DB_USERNAME }} \
               DBPassword=${{ secrets.DB_PASSWORD }} \
-              DBInstanceClass=db.t3.micro \
+              DBName=stockmanagerprod \
+              DBInstanceClass=db.r6g.large \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small
 
