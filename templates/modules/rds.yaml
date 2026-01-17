@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Banco de Dados - Aurora PostgreSQL 
+Description: Módulo de Banco de Dados - Aurora PostgreSQL (Versão Final Estável)
 
 Parameters:
   ProjectName:
@@ -17,10 +17,9 @@ Parameters:
     Default: stockmanagerprod
   DBInstanceClass:
     Type: String
-    Default: db.t4g.medium
+    Default: db.t3.medium
 
 Resources:
-
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:

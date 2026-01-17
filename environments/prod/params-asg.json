@@ -1,7 +1,0 @@
-[
-  { "ParameterKey": "Environment", "ParameterValue": "prod" },
-  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
-  { "ParameterKey": "KeyPairName", "ParameterValue": "chave-estoque-prod" },
-  { "ParameterKey": "AppInstanceType", "ParameterValue": "t3.small" },
-  { "ParameterKey": "LatestAMIId", "ParameterValue": "ami-0c101f26f147fa7fd" }
-]
