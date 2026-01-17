@@ -4,19 +4,25 @@ Description: Modulo RDS Aurora PostgreSQL
 Parameters:
   ProjectName:
     Type: String
+
   Environment:
     Type: String
+
   DBUsername:
     Type: String
+
   DBPassword:
     Type: String
     NoEcho: true
+
   DBName:
     Type: String
+
   DBInstanceClass:
     Type: String
 
 Resources:
+
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
