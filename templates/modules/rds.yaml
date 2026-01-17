@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Banco de Dados - Aurora PostgreSQL 15.7
+Description: Módulo de Banco de Dados - Aurora PostgreSQL 15.4
 
 Parameters:
   ProjectName:
@@ -10,7 +10,7 @@ Parameters:
 
   DBUsername:
     Type: String
-    Default: admin
+    Default: dbadmin   # nunca admin, root ou postgres
 
   DBPassword:
     Type: String
@@ -22,13 +22,10 @@ Parameters:
 
   DBInstanceClass:
     Type: String
-    Default: db.t3.medium
+    Default: db.t4g.medium   # padrão seguro para Aurora hoje
 
 Resources:
 
-  # ==================================================
-  # DB Subnet Group (subnets privadas de DB)
-  # ==================================================
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -37,15 +34,12 @@ Resources:
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
-  # ==================================================
-  # Aurora Cluster
-  # ==================================================
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
       DatabaseName: !Ref DBName
       Engine: aurora-postgresql
-      EngineVersion: "15.7"
+      EngineVersion: "15.4"
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
@@ -55,9 +49,6 @@ Resources:
       StorageEncrypted: true
       DeletionProtection: false
 
-  # ==================================================
-  # Aurora Instance
-  # ==================================================
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
@@ -67,7 +58,6 @@ Resources:
       PubliclyAccessible: false
 
 Outputs:
-
   DBEndpoint:
     Description: Endpoint do Cluster Aurora
     Value: !GetAtt DBCluster.Endpoint.Address
