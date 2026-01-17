@@ -8,6 +8,10 @@
     "ParameterValue": "prod"
   },
   {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "chave-estoque-prod"
+  },
+  {
     "ParameterKey": "DBUsername",
     "ParameterValue": "dbadmin"
   },
@@ -22,5 +26,29 @@
   {
     "ParameterKey": "DBInstanceClass",
     "ParameterValue": "db.r6g.large"
+  },
+  {
+    "ParameterKey": "WebInstanceType",
+    "ParameterValue": "t3.micro"
+  },
+  {
+    "ParameterKey": "AppInstanceType",
+    "ParameterValue": "t3.small"
+  },
+  {
+    "ParameterKey": "LatestAMIId",
+    "ParameterValue": "ami-0c101f26f147fa7fd"
+  },
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "api.asantanadev.com"
+  },
+  {
+    "ParameterKey": "HostedZoneId",
+    "ParameterValue": "Z0620408R15AZPT367P2"
+  },
+  {
+    "ParameterKey": "CertificateARN",
+    "ParameterValue": "arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096"
   }
 ]
