@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Banco de Dados - Aurora PostgreSQL (Versão Final Estável)
+Description: Modulo RDS Aurora PostgreSQL
 
 Parameters:
   ProjectName:
@@ -8,16 +8,13 @@ Parameters:
     Type: String
   DBUsername:
     Type: String
-    Default: dbadmin
   DBPassword:
     Type: String
     NoEcho: true
   DBName:
     Type: String
-    Default: stockmanagerprod
   DBInstanceClass:
     Type: String
-    Default: db.t3.medium
 
 Resources:
   DBSubnetGroup:
@@ -31,8 +28,9 @@ Resources:
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
+      DBClusterIdentifier: !Sub "${ProjectName}-${Environment}-aurora-cluster"
       Engine: aurora-postgresql
-      EngineVersion: "15.4" 
+      EngineVersion: "15.4"
       DatabaseName: !Ref DBName
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
@@ -46,10 +44,10 @@ Resources:
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      Engine: aurora-postgresql
-      EngineVersion: "15.4" 
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
+      Engine: aurora-postgresql
+      EngineVersion: "15.4"
       PubliclyAccessible: false
 
 Outputs:
