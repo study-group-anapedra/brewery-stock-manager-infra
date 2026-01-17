@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Banco de Dados - Aurora PostgreSQL 15.4
+Description: Módulo de Banco de Dados - Aurora PostgreSQL 
 
 Parameters:
   ProjectName:
@@ -39,7 +39,6 @@ Resources:
     Properties:
       DatabaseName: !Ref DBName
       Engine: aurora-postgresql
-      EngineVersion: "15.4"
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
