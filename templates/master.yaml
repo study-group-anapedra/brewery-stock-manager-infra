@@ -2,48 +2,34 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Master Stack - Infraestrutura completa (sem DNS e sem aplicação)
 
 Parameters:
-
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-
   CertificateARN:
     Type: String
-
   DomainName:
     Type: String
-
   LatestAMIId:
     Type: AWS::EC2::Image::Id
-
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-
   AppInstanceType:
     Type: String
-
   DBInstanceClass:
     Type: String
-
   DBUsername:
     Type: String
-    
   DBPassword:
     Type: String
     NoEcho: true
-    
   DBName:
     Type: String
     Default: "stockmanagerprod"
     Description: "Nome do banco de dados que será criado"
 
 Resources:
-
-  # ==================================================
   # VPC
-  # ==================================================
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -52,9 +38,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # SECURITY GROUPS
-  # ==================================================
   SecurityGroupsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VPCStack
@@ -64,9 +48,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # ALB
-  # ==================================================
   AlbStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityGroupsStack
@@ -77,9 +59,7 @@ Resources:
         Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
 
-  # ==================================================
-  # RDS
-  # ==================================================
+  # RDS (CORRIGIDO)
   RdsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityGroupsStack
@@ -93,9 +73,7 @@ Resources:
         DBName: !Ref DBName
         DBInstanceClass: !Ref DBInstanceClass
 
-  # ==================================================
   # ELASTICACHE
-  # ==================================================
   RedisStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityGroupsStack
@@ -105,9 +83,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # EFS
-  # ==================================================
   EfsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: SecurityGroupsStack
@@ -117,9 +93,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # ASG / COMPUTE
-  # ==================================================
   AsgStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -137,9 +111,7 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
-  # ==================================================
-  # CLOUDWATCH LOG GROUP (APP)
-  # ==================================================
+  # CLOUDWATCH LOG GROUP
   CloudWatchLogsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AsgStack
@@ -149,9 +121,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # CLOUDWATCH ALARMS - ALB
-  # ==================================================
   AlbAlarmsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AlbStack
@@ -161,9 +131,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # CLOUDWATCH ALARMS - ASG
-  # ==================================================
   AsgAlarmsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AsgStack
@@ -173,9 +141,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # CLOUDWATCH ALB ACCESS LOGS
-  # ==================================================
   AlbLogsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AlbStack
@@ -185,9 +151,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
   # CLOUDFRONT
-  # ==================================================
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AlbStack
@@ -199,9 +163,7 @@ Resources:
         CertificateARN: !Ref CertificateARN
         DomainName: !Ref DomainName
 
-  # ==================================================
   # WAF (CLOUDFRONT)
-  # ==================================================
   WafStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: CloudFrontStack
@@ -215,9 +177,8 @@ Outputs:
   WebsiteURL:
     Description: "URL pública da aplicação"
     Value: !Sub "https://${DomainName}"
-
   CloudFrontDNSForRoute53:
-    Description: "DNS do CloudFront para ser usado no Job 2"
+    Description: "DNS do CloudFront"
     Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
     Export:
       Name: !Sub "${AWS::StackName}-CF-DNS"
