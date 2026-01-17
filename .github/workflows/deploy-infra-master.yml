@@ -62,7 +62,7 @@ jobs:
               DBUsername=${{ secrets.DB_USERNAME }} \
               DBPassword=${{ secrets.DB_PASSWORD }} \
               DBName=stockmanagerprod \
-              DBInstanceClass=db.r6g.large \
+              DBInstanceClass=db.t4g.medium \
               WebInstanceType=t3.micro \
               AppInstanceType=t3.small
 

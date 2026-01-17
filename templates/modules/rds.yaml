@@ -30,7 +30,7 @@ Resources:
     Properties:
       DBClusterIdentifier: !Sub "${ProjectName}-${Environment}-aurora-cluster"
       Engine: aurora-postgresql
-      EngineVersion: "15.4"
+      EngineVersion: "15.8"
       DatabaseName: !Ref DBName
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
@@ -47,7 +47,7 @@ Resources:
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       Engine: aurora-postgresql
-      EngineVersion: "15.4"
+      EngineVersion: "15.8"
       PubliclyAccessible: false
 
 Outputs:
