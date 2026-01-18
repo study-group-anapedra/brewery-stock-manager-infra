@@ -123,7 +123,11 @@ Resources:
       HealthCheckGracePeriod: 300
 
 Outputs:
-  AutoScalingGroupName:
-    Description: Nome do Auto Scaling Group para integração com o CodeDeploy
+  AsgName:
+    Description: Nome do Auto Scaling Group
     Value: !Ref AppAsg
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
+    
 

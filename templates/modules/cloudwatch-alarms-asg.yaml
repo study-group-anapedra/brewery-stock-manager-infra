@@ -8,6 +8,7 @@ Parameters:
     Type: String
 
 Resources:
+
   AsgHighCPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -19,13 +20,13 @@ Resources:
       EvaluationPeriods: 2
       Threshold: 75
       ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       Dimensions:
         - Name: AutoScalingGroupName
-          Value: !ImportValue
-            Fn::Sub: "${ProjectName}-${Environment}-AsgName"
-      TreatMissingData: notBreaching
+          Value:
+            Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AsgName"
 
 Outputs:
   AsgHighCPUAlarmName:
+    Description: Nome do alarme de CPU alta do ASG
     Value: !Ref AsgHighCPUAlarm
-
