@@ -22,7 +22,7 @@ Parameters:
 Resources:
 
   # ==================================================
-  # IAM Role da EC2 (CORRIGIDA E FINAL)
+  # IAM Role da EC2
   # ==================================================
   AppInstanceRole:
     Type: AWS::IAM::Role
@@ -123,11 +123,12 @@ Resources:
       HealthCheckGracePeriod: 300
 
 Outputs:
-  AsgName:
-    Description: Nome do Auto Scaling Group
+  AutoScalingGroupName:
+    Description: Nome do Auto Scaling Group para integração com o CodeDeploy
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
 
     
 

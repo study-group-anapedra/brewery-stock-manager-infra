@@ -49,6 +49,7 @@ Resources:
       Engine: aurora-postgresql
       EngineVersion: "15.8"
       PubliclyAccessible: false
+      
 
 Outputs:
   DBEndpoint:
