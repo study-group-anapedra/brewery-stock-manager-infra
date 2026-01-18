@@ -162,6 +162,47 @@ Resources:
         DomainName: !Ref DomainName
         WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
 
+  
+
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: stock-manager-codedeploy-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: stock-manager-app
+      ComputePlatform: Server
+
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    DependsOn:
+      - AsgStack
+      - CodeDeployServiceRole
+      - CodeDeployApplication
+    Properties:
+      ApplicationName: stock-manager-app
+      DeploymentGroupName: stock-manager-dg-v2
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentStyle:
+        DeploymentType: IN_PLACE
+        DeploymentOption: WITHOUT_TRAFFIC_CONTROL
+      AutoScalingGroups:
+        - !GetAtt AsgStack.Outputs.AutoScalingGroupName
+
+
+
+
 Outputs:
   WebsiteURL:
     Description: "URL pública da aplicação"
@@ -171,3 +212,5 @@ Outputs:
     Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
     Export:
       Name: !Sub "${AWS::StackName}-CF-DNS"
+
+      
