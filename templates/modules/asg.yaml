@@ -1,215 +1,121 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Corrigida - Adicionado Security Groups e Corrigido Resource Types
+Description: Módulo de Computação - Produção (ASG + IAM) Corrigido para CodeDeploy e Importação de VPC
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues: [dev, prod]
   ProjectName:
     Type: String
+  Environment:
+    Type: String
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+    Default: t3.small
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+  DBUsername:
+    Type: String
+  DBPassword:
+    Type: String
+    NoEcho: true
 
 Resources:
-  # =========================
-  # REDE BÁSICA
-  # =========================
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.0.0.0/16
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-vpc"
-
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-igw"
-
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment # FIX: Adicionado EC2:: aqui
-    Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-
-  NatEip:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  NatGateway:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatEip.AllocationId
-      SubnetId: !Ref PublicSubnetAZ1
-
-  # =========================
-  # SUBNETS (Públicas e Privadas)
-  # =========================
-  PublicSubnetAZ1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.0.1.0/24
-      MapPublicIpOnLaunch: true
-
-  PublicSubnetAZ2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: 10.0.2.0/24
-      MapPublicIpOnLaunch: true
-
-  PrivateAppAZ1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.0.21.0/24
-
-  PrivateAppAZ2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: 10.0.22.0/24
-
-  PrivateDbAZ1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.0.31.0/24
-
-  PrivateDbAZ2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: 10.0.32.0/24
 
   # ==================================================
-  # SECURITY GROUPS (O que faltava para a Master Stack)
+  # IAM Role da EC2 (Pilar 1: Permissões)
   # ==================================================
-  AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  AppInstanceRole:
+    Type: AWS::IAM::Role
     Properties:
-      GroupDescription: Security Group para o Load Balancer
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
 
-  AppSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
     Properties:
-      GroupDescription: Security Group para a instancia EC2
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          SourceSecurityGroupId: !Ref AlbSecurityGroup
+      Roles:
+        - !Ref AppInstanceRole
 
-  DbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  # ==================================================
+  # Launch Template (Pilar 2: Configuração de Inicialização)
+  # ==================================================
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      GroupDescription: Security Group para o Banco de Dados
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref AppSecurityGroup
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-lt"
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Name: !Ref AppInstanceProfile
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+          - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
-  # =========================
-  # TABELAS DE ROTA
-  # =========================
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                yum update -y
+                yum install -y java-21-amazon-corretto awscli ruby wget
+
+                cd /home/ec2-user
+                wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
+                chmod +x ./install
+                ./install auto
+                systemctl enable codedeploy-agent
+                systemctl start codedeploy-agent
+
+                mkdir -p /home/ec2-user/app
+                echo "export DB_URL=${RDSUrl}" >> /etc/profile.d/app_env.sh
+                echo "export DB_USERNAME=${DBUsername}" >> /etc/profile.d/app_env.sh
+                echo "export DB_PASSWORD=${DBPassword}" >> /etc/profile.d/app_env.sh
+                chmod +x /etc/profile.d/app_env.sh
+              - RDSUrl:
+                  Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
+                DBUsername: !Ref DBUsername
+                DBPassword: !Ref DBPassword
+
+  # ==================================================
+  # Auto Scaling Group (Pilar 3: Rede e Disponibilidade)
+  # ==================================================
+  AppAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      VpcId: !Ref VPC
+      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      MinSize: "1"
+      MaxSize: "2"
+      DesiredCapacity: "1"
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+      TargetGroupARNs:
+        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-app"
+          PropagateAtLaunch: true
 
-  PublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: AttachGateway
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-
-  PrivateRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-
-  PrivateRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
-
-  # Associações
-  PublicAssoc1: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PublicSubnetAZ1, RouteTableId: !Ref PublicRouteTable } }
-  PublicAssoc2: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PublicSubnetAZ2, RouteTableId: !Ref PublicRouteTable } }
-  AppAssoc1: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateAppAZ1, RouteTableId: !Ref PrivateRouteTable } }
-  AppAssoc2: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateAppAZ2, RouteTableId: !Ref PrivateRouteTable } }
-  DbAssoc1: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateDbAZ1, RouteTableId: !Ref PrivateRouteTable } }
-  DbAssoc2: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateDbAZ2, RouteTableId: !Ref PrivateRouteTable } }
-
-# =========================
-# OUTPUTS (Contrato com a Master)
-# =========================
 Outputs:
-  VpcId:
-    Value: !Ref VPC
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-id" }
-  
-  PublicSubnetAZ1:
-    Value: !Ref PublicSubnetAZ1
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-public-az1" }
-  
-  PublicSubnetAZ2:
-    Value: !Ref PublicSubnetAZ2
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-public-az2" }
-
-  PrivateAppSubnetAZ1:
-    Value: !Ref PrivateAppAZ1
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1" }
-
-  PrivateAppSubnetAZ2:
-    Value: !Ref PrivateAppAZ2
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2" }
-
-  PrivateDbSubnetAZ1:
-    Value: !Ref PrivateDbAZ1
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1" }
-
-  PrivateDbSubnetAZ2:
-    Value: !Ref PrivateDbAZ2
-    Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2" }
-
-
-  AlbSecurityGroup:
-    Value: !Ref AlbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
-
-  AppSecurityGroup:
-    Value: !Ref AppSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AppSG" }
-
-  DbSecurityGroup:
-    Value: !Ref DbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-DbSG" }
+  AutoScalingGroupName:
+    Description: Nome para integração com CodeDeploy
+    Value: !Ref AppAsg
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AsgName"
