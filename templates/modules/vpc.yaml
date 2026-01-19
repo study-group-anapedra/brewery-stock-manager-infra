@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Corrigida - Base funcional e determinística para a infra
+Description: VPC Base funcional e deterministica para a infra
 
 Parameters:
   Environment:
@@ -10,7 +10,7 @@ Parameters:
 
 Resources:
   # =========================
-  # REDE BÁSICA
+  # REDE BASICA
   # =========================
   VPC:
     Type: AWS::EC2::VPC
@@ -51,7 +51,7 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-nat"
 
   # =========================
-  # SUBNETS (Públicas e Privadas)
+  # SUBNETS
   # =========================
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
@@ -115,13 +115,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
-  # ==================================================
+  # =========================
   # SECURITY GROUPS
-  # ==================================================
+  # =========================
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group para o Load Balancer
+      GroupDescription: Security Group for Load Balancer
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -142,7 +142,7 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group para a aplicação
+      GroupDescription: Security Group for application
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -159,7 +159,7 @@ Resources:
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group para o Banco de Dados
+      GroupDescription: Security Group for database
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -174,7 +174,7 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
   # =========================
-  # TABELAS DE ROTA
+  # ROUTES
   # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -208,7 +208,9 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  # Associações
+  # =========================
+  # ASSOCIATIONS
+  # =========================
   PublicAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -246,7 +248,7 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
 
 # =========================
-# OUTPUTS (Contrato com a Master)
+# OUTPUTS
 # =========================
 Outputs:
   VpcId:
@@ -298,5 +300,3 @@ Outputs:
     Value: !Ref DbSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DbSG"
-
-  
