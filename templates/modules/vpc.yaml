@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC - Arquitetura Corrigida com NAT Gateway e Security Groups para ALB e RDS
+Description: VPC Corrigida - Adicionado Security Groups e Corrigido Resource Types
 
 Parameters:
   Environment:
@@ -10,7 +10,7 @@ Parameters:
 
 Resources:
   # =========================
-  # 1. INFRAESTRUTURA DE REDE
+  # REDE BÁSICA
   # =========================
   VPC:
     Type: AWS::EC2::VPC
@@ -24,9 +24,13 @@ Resources:
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-igw"
 
   AttachGateway:
-    Type: AWS::VPCGatewayAttachment
+    Type: AWS::EC2::VPCGatewayAttachment # FIX: Adicionado EC2:: aqui
     Properties:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
@@ -43,7 +47,7 @@ Resources:
       SubnetId: !Ref PublicSubnetAZ1
 
   # =========================
-  # 2. SUBNETS
+  # SUBNETS (Públicas e Privadas)
   # =========================
   PublicSubnetAZ1:
     Type: AWS::EC2::Subnet
@@ -90,14 +94,12 @@ Resources:
       CidrBlock: 10.0.32.0/24
 
   # ==================================================
-  # 3. SECURITY GROUPS (O que resolve os erros de exportação)
+  # SECURITY GROUPS (O que faltava para a Master Stack)
   # ==================================================
-  
-  # Security Group do Load Balancer
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG para o Load Balancer (Acesso Web)
+      GroupDescription: Security Group para o Load Balancer
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -108,42 +110,31 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
 
-  # Security Group da Aplicação (EC2)
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG para a instancia EC2 (Recebe do ALB)
+      GroupDescription: Security Group para a instancia EC2
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           SourceSecurityGroupId: !Ref AlbSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # Security Group do Banco de Dados (RDS)
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG para o Aurora PostgreSQL (Recebe da App)
+      GroupDescription: Security Group para o Banco de Dados
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref AppSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
   # =========================
-  # 4. ROTAS (Essencial para Managed: True)
+  # TABELAS DE ROTA
   # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -170,6 +161,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
+  # Associações
   PublicAssoc1: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PublicSubnetAZ1, RouteTableId: !Ref PublicRouteTable } }
   PublicAssoc2: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PublicSubnetAZ2, RouteTableId: !Ref PublicRouteTable } }
   AppAssoc1: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateAppAZ1, RouteTableId: !Ref PrivateRouteTable } }
@@ -178,7 +170,7 @@ Resources:
   DbAssoc2: { Type: "AWS::EC2::SubnetRouteTableAssociation", Properties: { SubnetId: !Ref PrivateDbAZ2, RouteTableId: !Ref PrivateRouteTable } }
 
 # =========================
-# 5. OUTPUTS (Contrato de Exportação)
+# OUTPUTS (Contrato com a Master)
 # =========================
 Outputs:
   VpcId:
@@ -209,7 +201,7 @@ Outputs:
     Value: !Ref PrivateDbAZ2
     Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2" }
 
-  # Exportações de Security Groups para Job 2 e 3
+  # OS EXPORTS QUE RESOLVEM O ERRO DA MASTER
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
     Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
@@ -221,3 +213,5 @@ Outputs:
   DbSecurityGroup:
     Value: !Ref DbSecurityGroup
     Export: { Name: !Sub "${ProjectName}-${Environment}-DbSG" }
+  
+  
