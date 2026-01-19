@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Job 2 e 3 (Serviços e Computação)
+Description: Master Stack Corrigida - Job 2 e 3 (Serviços e Computação)
 
 Parameters:
   ProjectName:
@@ -89,60 +89,23 @@ Resources:
         WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
 
   # ==================================================
-  # JOB 3: COMPUTAÇÃO E DEPLOY
+  # JOB 3: COMPUTAÇÃO E DEPLOY (CORRIGIDO)
   # ==================================================
   AsgStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
       - AlbStack
       - RdsStack
-      - RedisStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/asg.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        AmiId: !Ref LatestAMIId
-        InstanceType: !Ref AppInstanceType
-        KeyPairName: !Ref KeyName
+        AmiId: !Ref LatestAMIId          # Mapeia LatestAMIId -> AmiId
+        InstanceType: !Ref AppInstanceType # Mapeia AppInstanceType -> InstanceType
+        KeyPairName: !Ref KeyName        # Mapeia KeyName -> KeyPairName
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
-
-  CloudWatchLogsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: AsgStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-ec2-logs.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
-  AlbAlarmsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: AlbStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-alb.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
-  AsgAlarmsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: AsgStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-asg.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
-  AlbLogsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: AlbStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alb-logs.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
 
   # ==================================================
   # CODEDEPLOY RESOURCES
@@ -150,7 +113,7 @@ Resources:
   CodeDeployServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: stock-manager-codedeploy-role
+      RoleName: !Sub "${ProjectName}-${Environment}-codedeploy-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -164,18 +127,16 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: stock-manager-app
+      ApplicationName: !Sub "${ProjectName}-app"
       ComputePlatform: Server
 
   CodeDeployDeploymentGroup:
     Type: AWS::CodeDeploy::DeploymentGroup
     DependsOn:
       - AsgStack
-      - CodeDeployServiceRole
-      - CodeDeployApplication
     Properties:
-      ApplicationName: stock-manager-app
-      DeploymentGroupName: stock-manager-dg-v2
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentGroupName: !Sub "${ProjectName}-dg-v2"
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
       DeploymentStyle:
         DeploymentType: IN_PLACE
@@ -183,15 +144,25 @@ Resources:
       AutoScalingGroups:
         - !GetAtt AsgStack.Outputs.AutoScalingGroupName
 
+# ==================================================
+# OUTPUTS PARA O JOB 3 (DNS E DEPLOY)
+# ==================================================
 Outputs:
   WebsiteURL:
     Description: "URL pública da aplicação"
     Value: !Sub "https://${DomainName}"
-  CloudFrontDNSForRoute53:
+
+  CloudFrontDNS:
     Description: "DNS do CloudFront"
     Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
     Export:
-      Name: !Sub "${AWS::StackName}-CF-DNS"
+      Name: !Sub "${ProjectName}-${Environment}-CF-DNS"
+
+  CloudFrontHostedZoneId:
+    Description: "Hosted Zone ID fixa do CloudFront"
+    Value: "Z2FDTNDATAQYW2"
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-CF-ZoneID"
 
 
       

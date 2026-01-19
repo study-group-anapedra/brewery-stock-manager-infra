@@ -201,7 +201,7 @@ Outputs:
     Value: !Ref PrivateDbAZ2
     Export: { Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2" }
 
-  # OS EXPORTS QUE RESOLVEM O ERRO DA MASTER
+
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
     Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
