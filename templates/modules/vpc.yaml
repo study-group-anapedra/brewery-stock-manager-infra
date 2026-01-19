@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Base funcional e deterministica para a infra
+Description: VPC Base - Network, Subnets, Security Groups and Routing
 
 Parameters:
   Environment:
@@ -10,7 +10,7 @@ Parameters:
 
 Resources:
   # =========================
-  # REDE BASICA
+  # NETWORK
   # =========================
   VPC:
     Type: AWS::EC2::VPC
@@ -121,7 +121,7 @@ Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for Load Balancer
+      GroupDescription: Security group for Load Balancer
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -142,7 +142,7 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for application
+      GroupDescription: Security group for application instances
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -159,7 +159,7 @@ Resources:
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for database
+      GroupDescription: Security group for database
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -174,7 +174,7 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
   # =========================
-  # ROUTES
+  # ROUTE TABLES
   # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -209,7 +209,7 @@ Resources:
       NatGatewayId: !Ref NatGateway
 
   # =========================
-  # ASSOCIATIONS
+  # ROUTE ASSOCIATIONS
   # =========================
   PublicAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -300,3 +300,8 @@ Outputs:
     Value: !Ref DbSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DbSG"
+
+
+    
+  
+  
