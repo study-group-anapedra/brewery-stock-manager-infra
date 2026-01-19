@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Computação - Produção (ASG + IAM)
+Description: Módulo de Computação - Produção (ASG + IAM) Corrigido para CodeDeploy
 
 Parameters:
   ProjectName:
@@ -68,9 +68,11 @@ Resources:
             Fn::Sub:
               - |
                 #!/bin/bash
+                # Atualização e Instalação de dependências base
                 yum update -y
-                yum install -y java-21-amazon-corretto awscli awslogs
+                yum install -y java-21-amazon-corretto awscli awslogs ruby wget
 
+                # Configuração de Logs
                 systemctl start awslogsd
                 systemctl enable awslogsd
 
@@ -86,18 +88,23 @@ Resources:
 
                 systemctl restart awslogsd
 
-                mkdir -p /opt/app
-                cd /opt/app
+                # Instalação do AWS CodeDeploy Agent
+                cd /home/ec2-user
+                wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
+                chmod +x ./install
+                ./install auto
+                systemctl enable codedeploy-agent
+                systemctl start codedeploy-agent
 
-                aws s3 cp s3://${ProjectName}-${Environment}-artifacts/app.jar app.jar
+                # Criação do diretório da aplicação e variáveis de ambiente para o SO
+                mkdir -p /home/ec2-user/app
+                
+                # Exportando variáveis para que fiquem disponíveis para o Agent/App
+                echo "export DB_URL=${RDSUrl}" >> /etc/profile.d/app_env.sh
+                echo "export DB_USERNAME=${DBUsername}" >> /etc/profile.d/app_env.sh
+                echo "export DB_PASSWORD=${DBPassword}" >> /etc/profile.d/app_env.sh
+                chmod +x /etc/profile.d/app_env.sh
 
-                export DB_URL=${RDSUrl}
-                export DB_USERNAME=${DBUsername}
-                export DB_PASSWORD=${DBPassword}
-
-                nohup java -jar app.jar \
-                  --spring.profiles.active=prod \
-                  --server.port=8080 > /var/log/app.log 2>&1 &
               - RDSUrl:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
 
@@ -121,6 +128,11 @@ Resources:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
+      # Adicionado Tags para garantir que o CodeDeploy identifique as instâncias corretamente
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-app"
+          PropagateAtLaunch: true
 
 Outputs:
   AutoScalingGroupName:
@@ -128,7 +140,6 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
 
     
 
