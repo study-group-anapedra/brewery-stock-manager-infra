@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master Stack - Infraestrutura completa (sem DNS e sem aplicação)
+Description: Master Stack - Job 2 e 3 (Serviços e Computação)
 
 Parameters:
   ProjectName:
@@ -26,29 +26,11 @@ Parameters:
   DBName:
     Type: String
     Default: "stockmanagerprod"
-    Description: "Nome do banco de dados que será criado"
 
 Resources:
-  VPCStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/vpc.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
-  SecurityGroupsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: VPCStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/sg.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
+  
   AlbStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityGroupsStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/alb.yaml"
       Parameters:
@@ -58,7 +40,6 @@ Resources:
 
   RdsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityGroupsStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/rds.yaml"
       Parameters:
@@ -71,7 +52,6 @@ Resources:
 
   RedisStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityGroupsStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/elasticache.yaml"
       Parameters:
@@ -80,13 +60,37 @@ Resources:
 
   EfsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityGroupsStack
     Properties:
       TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/efs.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  WafStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/waf-cloudfront.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: 
+      - AlbStack
+      - WafStack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudfront.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        CertificateARN: !Ref CertificateARN
+        DomainName: !Ref DomainName
+        WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
+
+  # ==================================================
+  # JOB 3: COMPUTAÇÃO E DEPLOY
+  # ==================================================
   AsgStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -140,30 +144,9 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  WafStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/waf-cloudfront.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-
-  CloudFrontStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: 
-      - AlbStack
-      - WafStack
-    Properties:
-      TemplateURL: "https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudfront.yaml"
-      Parameters:
-        ProjectName: !Ref ProjectName
-        Environment: !Ref Environment
-        CertificateARN: !Ref CertificateARN
-        DomainName: !Ref DomainName
-        WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
-
-  
-
+  # ==================================================
+  # CODEDEPLOY RESOURCES
+  # ==================================================
   CodeDeployServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -199,9 +182,6 @@ Resources:
         DeploymentOption: WITHOUT_TRAFFIC_CONTROL
       AutoScalingGroups:
         - !GetAtt AsgStack.Outputs.AutoScalingGroupName
-
-
-
 
 Outputs:
   WebsiteURL:

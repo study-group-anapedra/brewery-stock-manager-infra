@@ -1,4 +1,4 @@
-name: Deploy Infrastructure (Master + DNS)
+name: Deploy Infrastructure (VPC -> Master -> DNS)
 
 on:
   push:
@@ -10,20 +10,42 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  PROJECT_NAME: stock-manager
-  ENVIRONMENT: dev
   S3_BUCKET: stock-manager-prod-artifacts
-  STACK_NAME_INFRA: stock-manager-master-dev
-  STACK_NAME_DNS: stock-manager-dns-dev
-  DOMAIN_NAME: api.asantanadev.com
-  HOSTED_ZONE_ID: Z0620408R15AZPT367P2
-  CERTIFICATE_ARN: arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096
+  STACK_NAME_VPC: stock-manager-vpc-prod
+  STACK_NAME_INFRA: stock-manager-master-prod
+  STACK_NAME_DNS: stock-manager-dns-prod
 
 jobs:
+  # ==================================================
+  # JOB 1: Fundação de Rede (VPC e NAT Gateway)
+  # ==================================================
+  deploy-vpc:
+    name: Deploy VPC Foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy VPC stack
+        run: |
+          aws cloudformation deploy \
+            --template-file templates/modules/vpc.yaml \
+            --stack-name ${{ env.STACK_NAME_VPC }} \
+            --parameter-overrides file://prod/parameters-vpc-prod.json
+
+  # ==================================================
+  # JOB 2: Infraestrutura Master (RDS, ALB, Redis, ASG)
+  # ==================================================
   deploy-infra:
     name: Deploy Master Infrastructure
     runs-on: ubuntu-latest
-
+    needs: deploy-vpc  # Garante rede pronta para Managed: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,21 +73,13 @@ jobs:
             --template-file packaged-master.yaml \
             --stack-name ${{ env.STACK_NAME_INFRA }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides \
-              ProjectName=${{ env.PROJECT_NAME }} \
-              Environment=${{ env.ENVIRONMENT }} \
-              DomainName=${{ env.DOMAIN_NAME }} \
-              HostedZoneId=${{ env.HOSTED_ZONE_ID }} \
-              CertificateARN=${{ env.CERTIFICATE_ARN }} \
-              LatestAMIId=ami-0c101f26f147fa7fd \
-              KeyName=chave-estoque-prod \
+            --parameter-overrides file://prod/params-prod.json \
               DBUsername=${{ secrets.DB_USERNAME }} \
-              DBPassword=${{ secrets.DB_PASSWORD }} \
-              DBName=stockmanagerprod \
-              DBInstanceClass=db.t4g.medium \
-              WebInstanceType=t3.micro \
-              AppInstanceType=t3.small
+              DBPassword=${{ secrets.DB_PASSWORD }}
 
+  # ==================================================
+  # JOB 3: DNS e Route53
+  # ==================================================
   deploy-dns:
     name: Deploy Route53 DNS
     runs-on: ubuntu-latest
@@ -73,18 +87,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy DNS stack
         run: |
           aws cloudformation deploy \
             --template-file templates/modules/route53-records.yaml \
             --stack-name ${{ env.STACK_NAME_DNS }} \
-            --parameter-overrides \
-              ProjectName=${{ env.PROJECT_NAME }} \
-              Environment=${{ env.ENVIRONMENT }} \
-              DomainName=${{ env.DOMAIN_NAME }} \
-              HostedZoneId=${{ env.HOSTED_ZONE_ID }}
+            --parameter-overrides file://prod/params-prod.json
