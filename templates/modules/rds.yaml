@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Modulo RDS Aurora PostgreSQL
+Description: Modulo RDS Aurora PostgreSQL - Corrigido
 
 Parameters:
   ProjectName:
@@ -44,12 +44,12 @@ Resources:
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
+      DBInstanceIdentifier: !Sub "${ProjectName}-${Environment}-instance-1"
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       Engine: aurora-postgresql
       EngineVersion: "15.8"
       PubliclyAccessible: false
-      
 
 Outputs:
   DBEndpoint:
@@ -57,3 +57,9 @@ Outputs:
     Value: !GetAtt DBCluster.Endpoint.Address
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"
+  
+ 
+  DBPort:
+    Value: "5432"
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DBPort"

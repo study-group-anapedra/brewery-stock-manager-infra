@@ -37,7 +37,6 @@ Resources:
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:
-        # Essencial para o status "Managed: true"
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
@@ -62,7 +61,6 @@ Resources:
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
         SecurityGroupIds:
-          # IMPORTA o SG criado no Job 1 (VPC/Foundation)
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
         UserData:
@@ -70,11 +68,9 @@ Resources:
             Fn::Sub:
               - |
                 #!/bin/bash
-                # 1. Atualização e Instalação de dependências
                 yum update -y
                 yum install -y java-21-amazon-corretto awscli ruby wget
 
-                # 2. Instalação do AWS CodeDeploy Agent
                 cd /home/ec2-user
                 wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
                 chmod +x ./install
@@ -82,15 +78,12 @@ Resources:
                 systemctl enable codedeploy-agent
                 systemctl start codedeploy-agent
 
-                # 3. Preparação do diretório e variáveis para o Backend
                 mkdir -p /home/ec2-user/app
                 echo "export DB_URL=${RDSUrl}" >> /etc/profile.d/app_env.sh
                 echo "export DB_USERNAME=${DBUsername}" >> /etc/profile.d/app_env.sh
                 echo "export DB_PASSWORD=${DBPassword}" >> /etc/profile.d/app_env.sh
                 chmod +x /etc/profile.d/app_env.sh
-
               - RDSUrl:
-                  # IMPORTA o Endpoint do RDS criado no Job 2 (Master)
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
                 DBUsername: !Ref DBUsername
                 DBPassword: !Ref DBPassword
@@ -109,11 +102,9 @@ Resources:
       MaxSize: "2"
       DesiredCapacity: "1"
       VPCZoneIdentifier:
-        # IMPORTA as subnets privadas criadas no Job 1 (VPC)
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
       TargetGroupARNs:
-        # IMPORTA o Target Group criado no Job 2 (Master/ALB)
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
