@@ -107,6 +107,8 @@ Resources:
 
               - RDSUrl:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
+                DBUsername: !Ref DBUsername
+                DBPassword: !Ref DBPassword
 
   # ==================================================
   # Auto Scaling Group
@@ -128,7 +130,6 @@ Resources:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
-      # Adicionado Tags para garantir que o CodeDeploy identifique as instâncias corretamente
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app"
@@ -140,6 +141,5 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
     
 
