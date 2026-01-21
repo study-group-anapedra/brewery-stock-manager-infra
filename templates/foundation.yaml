@@ -7,6 +7,13 @@ Parameters:
 
   Environment:
     Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ArtifactsBucket:
+    Type: String
+    Description: S3 bucket where CloudFormation modules are stored
 
 Resources:
 
@@ -16,7 +23,7 @@ Resources:
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/SEU_BUCKET/modules/vpc.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/vpc.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -29,7 +36,67 @@ Resources:
     DependsOn:
       - VpcStack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/SEU_BUCKET/modules/sg.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/sg.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
+
+# =========================
+# OUTPUTS
+# Esses outputs são a ponte entre jobs
+# =========================
+Outputs:
+
+  # -------- VPC --------
+  VpcId:
+    Description: VPC ID
+    Value: !GetAtt VpcStack.Outputs.VpcId
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
+
+  PublicSubnetAZ1:
+    Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az1"
+
+  PublicSubnetAZ2:
+    Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az2"
+
+  PrivateAppSubnetAZ1:
+    Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
+
+  PrivateAppSubnetAZ2:
+    Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+
+  PrivateDbSubnetAZ1:
+    Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
+
+  PrivateDbSubnetAZ2:
+    Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
+
+  # -------- SECURITY GROUPS --------
+  AlbSecurityGroup:
+    Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
+
+  AppSecurityGroup:
+    Value: !GetAtt SecurityGroupStack.Outputs.AppSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSG"
+
+  DbSecurityGroup:
+    Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DbSG"
+
