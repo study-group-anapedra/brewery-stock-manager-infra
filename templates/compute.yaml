@@ -4,26 +4,42 @@ Description: Master do Job 3 - Compute (ASG + CodeDeploy)
 Parameters:
   ProjectName:
     Type: String
+
   Environment:
     Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+  ArtifactsBucket:
+    Type: String
+    Description: S3 bucket where CloudFormation modules are stored
+
   AmiId:
     Type: AWS::EC2::Image::Id
+
   InstanceType:
     Type: String
+
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
+
   DBUsername:
     Type: String
+
   DBPassword:
     Type: String
     NoEcho: true
 
 Resources:
 
+  # =========================
+  # AUTO SCALING GROUP STACK
+  # =========================
   AsgStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://SEU_BUCKET/modules/asg.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/asg.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -33,12 +49,39 @@ Resources:
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
 
+  # =========================
+  # CODEDEPLOY STACK
+  # =========================
   CodeDeployStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: AsgStack
+    DependsOn:
+      - AsgStack
     Properties:
-      TemplateURL: https://SEU_BUCKET/modules/codedeploy.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/codedeploy.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         AsgName: !GetAtt AsgStack.Outputs.AutoScalingGroupName
+
+# =========================
+# OUTPUTS (EXPORTADOS PARA OS PRÓXIMOS JOBS)
+# =========================
+Outputs:
+
+  AutoScalingGroupName:
+    Description: Auto Scaling Group Name
+    Value: !GetAtt AsgStack.Outputs.AutoScalingGroupName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
+  CodeDeployApplicationName:
+    Description: CodeDeploy Application Name
+    Value: !GetAtt CodeDeployStack.Outputs.CodeDeployApplicationName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-CodeDeployApp"
+
+  CodeDeployDeploymentGroupName:
+    Description: CodeDeploy Deployment Group Name
+    Value: !GetAtt CodeDeployStack.Outputs.DeploymentGroupName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-CodeDeployDG"
