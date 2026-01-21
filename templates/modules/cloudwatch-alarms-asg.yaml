@@ -13,6 +13,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub "${ProjectName}-${Environment}-asg-high-cpu"
+      AlarmDescription: "Dispara quando o uso médio de CPU do ASG ultrapassar 75%"
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Statistic: Average
@@ -30,3 +31,5 @@ Outputs:
   AsgHighCPUAlarmName:
     Description: Nome do alarme de CPU alta do ASG
     Value: !Ref AsgHighCPUAlarm
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AsgHighCPUAlarm"

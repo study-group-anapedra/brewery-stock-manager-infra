@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Master do Job 3 - Compute (ASG + CodeDeploy)
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+  DBUsername:
+    Type: String
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+
+  AsgStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://SEU_BUCKET/modules/asg.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        AmiId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyPairName: !Ref KeyPairName
+        DBUsername: !Ref DBUsername
+        DBPassword: !Ref DBPassword
+
+  CodeDeployStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AsgStack
+    Properties:
+      TemplateURL: https://SEU_BUCKET/modules/codedeploy.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        AsgName: !GetAtt AsgStack.Outputs.AutoScalingGroupName

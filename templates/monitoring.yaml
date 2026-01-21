@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Job 4 - Monitoring (CloudWatch Alarms e Logs para ALB e ASG)
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+Resources:
+
+  # ==================================================
+  # Alarmes do ALB
+  # ==================================================
+  AlbAlarmsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-alb.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  # ==================================================
+  # Alarmes do ASG / EC2
+  # ==================================================
+  AsgAlarmsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-asg.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  # ==================================================
+  # Logs do ALB
+  # ==================================================
+  AlbLogsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alb-logs.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  # ==================================================
+  # Logs das EC2 (ASG)
+  # ==================================================
+  Ec2LogsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-ec2-logs.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+Outputs:
+  MonitoringStack:
+    Description: Stack de monitoramento CloudWatch criado com sucesso
+    Value: !Sub "${ProjectName}-${Environment}-monitoring"

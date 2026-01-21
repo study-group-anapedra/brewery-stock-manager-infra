@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Módulo de Computação - Produção (ASG + IAM) Corrigido para CodeDeploy e Importação de VPC
+Description: ASG da aplicação + EC2 + UserData com conexão automática ao banco
 
 Parameters:
   ProjectName:
@@ -18,12 +18,12 @@ Parameters:
   DBPassword:
     Type: String
     NoEcho: true
+  DBName:
+    Type: String
+    Default: stockmanagerprod
 
 Resources:
 
-  # ==================================================
-  # IAM Role da EC2 (Pilar 1: Permissões)
-  # ==================================================
   AppInstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -32,10 +32,8 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service:
-                - ec2.amazonaws.com
-            Action:
-              - sts:AssumeRole
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
@@ -47,19 +45,16 @@ Resources:
       Roles:
         - !Ref AppInstanceRole
 
-  # ==================================================
-  # Launch Template (Pilar 2: Configuração de Inicialização)
-  # ==================================================
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub "${ProjectName}-${Environment}-lt"
       LaunchTemplateData:
-        IamInstanceProfile:
-          Name: !Ref AppInstanceProfile
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Name: !Ref AppInstanceProfile
         SecurityGroupIds:
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
@@ -79,18 +74,20 @@ Resources:
                 systemctl start codedeploy-agent
 
                 mkdir -p /home/ec2-user/app
-                echo "export DB_URL=${RDSUrl}" >> /etc/profile.d/app_env.sh
-                echo "export DB_USERNAME=${DBUsername}" >> /etc/profile.d/app_env.sh
-                echo "export DB_PASSWORD=${DBPassword}" >> /etc/profile.d/app_env.sh
+
+                cat <<EOF > /etc/profile.d/app_env.sh
+                export DB_URL=jdbc:postgresql://${DBEndpoint}:5432/${DBName}
+                export DB_USERNAME=${DBUsername}
+                export DB_PASSWORD=${DBPassword}
+                EOF
+
                 chmod +x /etc/profile.d/app_env.sh
-              - RDSUrl:
+              - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
+                DBName: !Ref DBName
                 DBUsername: !Ref DBUsername
                 DBPassword: !Ref DBPassword
 
-  # ==================================================
-  # Auto Scaling Group (Pilar 3: Rede e Disponibilidade)
-  # ==================================================
   AppAsg:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -115,7 +112,8 @@ Resources:
 
 Outputs:
   AutoScalingGroupName:
-    Description: Nome para integração com CodeDeploy
+    Description: Nome do AutoScalingGroup para integração com CodeDeploy e Alarmes
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
