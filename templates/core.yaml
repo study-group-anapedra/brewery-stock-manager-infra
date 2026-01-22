@@ -12,6 +12,9 @@ Parameters:
     Type: String
   DomainName:
     Type: String
+  WebACLArn:
+    Type: String
+    Default: "" 
   DBUsername:
     Type: String
   DBPassword:
@@ -23,14 +26,21 @@ Parameters:
     Type: String
 
 Resources:
+  # ==================================================
+  # WAF - Verifique se o nome no S3 é waf.yaml ou waf-cloudfront.yaml
+  # ==================================================
   WafStack:
     Type: AWS::CloudFormation::Stack
     Properties:
+      # Use o nome exato que está na sua pasta 'modules'
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/waf-cloudfront.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  # ==================================================
+  # ALB - Porta de entrada
+  # ==================================================
   AlbStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -40,6 +50,9 @@ Resources:
         Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
 
+  # ==================================================
+  # RDS - Banco de Dados (Depende do ALB pelos SGs)
+  # ==================================================
   RdsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AlbStack
@@ -53,6 +66,9 @@ Resources:
         DBName: !Ref DBName
         DBInstanceClass: !Ref DBInstanceClass
 
+  # ==================================================
+  # Redis e EFS - Camadas de Cache e Persistência
+  # ==================================================
   RedisStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -69,9 +85,14 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  # ==================================================
+  # CloudFront - Usa o WAF e o ALB criados acima
+  # ==================================================
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: [AlbStack, WafStack]
+    DependsOn: 
+      - AlbStack
+      - WafStack
     Properties:
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudfront.yaml"
       Parameters:
@@ -79,9 +100,11 @@ Resources:
         Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
         DomainName: !Ref DomainName
+        # Conecta o WAF automaticamente aqui
         WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
 
 Outputs:
+  # Exports para o Job 3 (Compute) conectar o Backend automaticamente
   DBEndpoint:
     Value: !GetAtt RdsStack.Outputs.DBEndpoint
     Export:
