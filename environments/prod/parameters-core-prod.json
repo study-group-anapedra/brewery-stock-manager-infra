@@ -2,6 +2,8 @@
   { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
   { "ParameterKey": "Environment", "ParameterValue": "prod" },
 
+  { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
+
   { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
   { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" },
   { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },

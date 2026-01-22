@@ -1,4 +1,14 @@
 [
-  { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
-  { "ParameterKey": "Environment", "ParameterValue": "prod" }
+  {
+    "ParameterKey": "ProjectName",
+    "ParameterValue": "stock-manager"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "ArtifactsBucket",
+    "ParameterValue": "stock-manager-prod-artifacts"
+  }
 ]
