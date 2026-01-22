@@ -89,6 +89,11 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AlbHostedZoneId"
 
+  AlbFullName:
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbFullName"    
+
 
 
  
