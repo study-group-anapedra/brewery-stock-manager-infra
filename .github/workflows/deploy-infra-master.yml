@@ -21,7 +21,7 @@ env:
 jobs:
 
 # ==================================================
-# JOB 1 - FOUNDATION
+# JOB 1 - FOUNDATION (VPC + Segurança Base)
 # ==================================================
   deploy-foundation:
     runs-on: ubuntu-latest
@@ -45,8 +45,9 @@ jobs:
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides $PARAMS
+
 # ==================================================
-# JOB 2 - CORE (Ajustado pelo padrão do Job 1)
+# JOB 2 - CORE (ALB, RDS, Redis, EFS, WAF, CloudFront)
 # ==================================================
   deploy-core:
     runs-on: ubuntu-latest
@@ -60,7 +61,6 @@ jobs:
 
       - name: Deploy Core Stack
         run: |
-          # Removido 'cloudformation/' pois o Job 1 provou que a raiz começa em 'environments/'
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)          
           
           aws cloudformation deploy \
@@ -70,7 +70,7 @@ jobs:
             --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
-# JOB 3 - COMPUTE
+# JOB 3 - COMPUTE (ASG + CodeDeploy + Injeção de Secrets)
 # ==================================================
   deploy-compute:
     runs-on: ubuntu-latest
@@ -84,16 +84,26 @@ jobs:
 
       - name: Deploy Compute Stack
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-compute-prod.json)
+          # 1. Exporta segredos e variáveis para o ambiente do runner
+          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
+          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export KEY_NAME="${{ vars.KEY_NAME }}"
+          export LATEST_AMI="${{ vars.LATEST_AMI }}"
+
+          # 2. Injeta os valores reais no JSON de parâmetros usando envsubst
+          envsubst < environments/prod/parameters-compute-prod.json > parameters-final.json
+          
+          # 3. Lê os parâmetros processados
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-final.json)
+          
           aws cloudformation deploy \
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
-
 # ==================================================
-# JOB 4 - MONITORING
+# JOB 4 - MONITORING (CloudWatch Alarms)
 # ==================================================
   deploy-monitoring:
     runs-on: ubuntu-latest
@@ -113,9 +123,8 @@ jobs:
             --stack-name ${{ env.STACK_MONITORING }} \
             --parameter-overrides $PARAMS
 
-
 # ==================================================
-# JOB 5 - DNS
+# JOB 5 - DNS (Route53 Records)
 # ==================================================
   deploy-dns:
     runs-on: ubuntu-latest

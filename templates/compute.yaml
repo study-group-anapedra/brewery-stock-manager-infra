@@ -4,35 +4,28 @@ Description: Master do Job 3 - Compute (ASG + CodeDeploy)
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-    AllowedValues:
-      - dev
-      - prod
-
+    AllowedValues: [dev, prod]
   ArtifactsBucket:
     Type: String
-    Description: S3 bucket where CloudFormation modules are stored
-
   AmiId:
     Type: AWS::EC2::Image::Id
-
   InstanceType:
     Type: String
-
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-
   DBUsername:
     Type: String
-
   DBPassword:
     Type: String
     NoEcho: true
+  # ADICIONADO: O Agregador precisa receber o nome do banco para repassar
+  DBName:
+    Type: String
+    Default: stockmanagerprod
 
 Resources:
-
   # =========================
   # AUTO SCALING GROUP STACK
   # =========================
@@ -48,6 +41,8 @@ Resources:
         KeyPairName: !Ref KeyPairName
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
+        # ADICIONADO: Repassando o nome do banco para o módulo ASG
+        DBName: !Ref DBName
 
   # =========================
   # CODEDEPLOY STACK
@@ -63,25 +58,18 @@ Resources:
         Environment: !Ref Environment
         AsgName: !GetAtt AsgStack.Outputs.AutoScalingGroupName
 
-# =========================
-# OUTPUTS (EXPORTADOS PARA OS PRÓXIMOS JOBS)
-# =========================
 Outputs:
-
   AutoScalingGroupName:
-    Description: Auto Scaling Group Name
     Value: !GetAtt AsgStack.Outputs.AutoScalingGroupName
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
 
   CodeDeployApplicationName:
-    Description: CodeDeploy Application Name
     Value: !GetAtt CodeDeployStack.Outputs.CodeDeployApplicationName
     Export:
       Name: !Sub "${ProjectName}-${Environment}-CodeDeployApp"
 
   CodeDeployDeploymentGroupName:
-    Description: CodeDeploy Deployment Group Name
     Value: !GetAtt CodeDeployStack.Outputs.DeploymentGroupName
     Export:
       Name: !Sub "${ProjectName}-${Environment}-CodeDeployDG"

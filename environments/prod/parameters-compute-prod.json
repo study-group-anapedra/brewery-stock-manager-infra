@@ -1,10 +1,13 @@
+
 [
   { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
   { "ParameterKey": "Environment", "ParameterValue": "prod" },
-
   { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
-
-  { "ParameterKey": "KeyName", "ParameterValue": "chave-estoque-prod" },
-  { "ParameterKey": "LatestAMIId", "ParameterValue": "ami-0c101f26f147fa7fd" },
-  { "ParameterKey": "AppInstanceType", "ParameterValue": "t3.small" }
+  { "ParameterKey": "AmiId", "ParameterValue": "${{ vars.LATEST_AMI }}" },
+  { "ParameterKey": "InstanceType", "ParameterValue": "t3.small" },
+  { "ParameterKey": "KeyPairName", "ParameterValue": "${{ vars.KEY_NAME }}" },
+  { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "${{ secrets.DB_USERNAME }}" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "${{ secrets.DB_PASSWORD }}" }
 ]
+
