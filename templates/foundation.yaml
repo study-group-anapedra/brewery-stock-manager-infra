@@ -43,7 +43,7 @@ Resources:
 
 # =========================
 # OUTPUTS
-# Esses outputs são a ponte entre jobs
+# Master é o ÚNICO que exporta
 # =========================
 Outputs:
 
@@ -99,4 +99,3 @@ Outputs:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DbSG"
-

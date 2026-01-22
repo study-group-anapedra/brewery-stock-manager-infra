@@ -69,17 +69,11 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
 Outputs:
-  AlbSecurityGroupId:
+  AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
 
-  AppSecurityGroupId:
+  AppSecurityGroup:
     Value: !Ref AppSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AppSG"
 
-  DbSecurityGroupId:
+  DbSecurityGroup:
     Value: !Ref DbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DbSG"
