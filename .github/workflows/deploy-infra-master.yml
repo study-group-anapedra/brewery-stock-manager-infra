@@ -46,7 +46,6 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides $PARAMS
 
-
 # ==================================================
 # JOB 2 - CORE (Corrigido)
 # ==================================================
@@ -55,7 +54,6 @@ jobs:
     needs: deploy-foundation
     steps:
       - uses: actions/checkout@v4
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -63,8 +61,8 @@ jobs:
 
       - name: Deploy Core Stack
         run: |
-          # CORREÇÃO: Caminho do JSON ajustado para incluir 'cloudformation/'
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' cloudformation/environments/prod/parameters-core-prod.json)
+          # CORREÇÃO: Caminho absoluto dentro do repositório
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' cloudformation/environments/prod/parameters-core-prod.json)          
           
           aws cloudformation deploy \
             --template-file cloudformation/templates/core.yaml \
