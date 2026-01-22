@@ -4,22 +4,15 @@ Description: Job 1 - Foundation Stack (VPC + Security Groups)
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
     AllowedValues:
       - dev
       - prod
-
   ArtifactsBucket:
     Type: String
-    Description: S3 bucket where CloudFormation modules are stored
 
 Resources:
-
-  # =========================
-  # VPC STACK
-  # =========================
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -28,28 +21,19 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # =========================
-  # SECURITY GROUP STACK
-  # =========================
   SecurityGroupStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VpcStack
+    DependsOn: VpcStack
     Properties:
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/sg.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
+        # CORREÇÃO: Passando o ID diretamente para o módulo de segurança
+        VpcId: !GetAtt VpcStack.Outputs.VpcId
 
-# =========================
-# OUTPUTS
-# Master é o ÚNICO que exporta
-# =========================
 Outputs:
-
-  # -------- VPC --------
   VpcId:
-    Description: VPC ID
     Value: !GetAtt VpcStack.Outputs.VpcId
     Export:
       Name: !Sub "${ProjectName}-vpc-${Environment}-id"
@@ -84,7 +68,6 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
-  # -------- SECURITY GROUPS --------
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
     Export:

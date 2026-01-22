@@ -8,14 +8,19 @@ Parameters:
   Environment:
     Type: String
 
+  # CORREÇÃO: Novo parâmetro para receber o ID da VPC diretamente do template pai
+  VpcId:
+    Type: String
+    Description: ID da VPC criada no modulo vpc.yaml
+
 Resources:
 
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB SG
-      VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
+      # CORREÇÃO: Usando !Ref VpcId em vez de Fn::ImportValue
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -36,8 +41,8 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: App SG
-      VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
+      # CORREÇÃO: Usando !Ref VpcId
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
@@ -54,8 +59,8 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: DB SG
-      VpcId:
-        Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
+      # CORREÇÃO: Usando !Ref VpcId
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
