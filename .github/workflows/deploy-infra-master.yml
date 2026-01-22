@@ -62,7 +62,7 @@ jobs:
       - name: Deploy Core Stack
         run: |
           # CORREÇÃO: Caminho absoluto dentro do repositório
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' cloudformation/environments/prod/parameters-core-prod.json)          
+           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)          
           
           aws cloudformation deploy \
             --template-file cloudformation/templates/core.yaml \
