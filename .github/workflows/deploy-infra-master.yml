@@ -45,9 +45,8 @@ jobs:
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides $PARAMS
-
 # ==================================================
-# JOB 2 - CORE (Corrigido)
+# JOB 2 - CORE (Ajustado pelo padrão do Job 1)
 # ==================================================
   deploy-core:
     runs-on: ubuntu-latest
@@ -61,11 +60,11 @@ jobs:
 
       - name: Deploy Core Stack
         run: |
-          # CORREÇÃO: Caminho absoluto dentro do repositório
-           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)          
+          # Removido 'cloudformation/' pois o Job 1 provou que a raiz começa em 'environments/'
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)          
           
           aws cloudformation deploy \
-            --template-file cloudformation/templates/core.yaml \
+            --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
@@ -90,7 +89,7 @@ jobs:
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
