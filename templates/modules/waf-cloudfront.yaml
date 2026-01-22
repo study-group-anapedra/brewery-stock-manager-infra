@@ -8,9 +8,6 @@ Parameters:
     Type: String
 
 Resources:
-  # ==================================================
-  # Web ACL do WAF (Obrigatório em us-east-1 para CloudFront)
-  # ==================================================
   CloudFrontWebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
@@ -23,7 +20,6 @@ Resources:
         MetricName: !Sub "${ProjectName}${Environment}WafMetrics"
         SampledRequestsEnabled: true
       Rules:
-        # Proteção contra SQL Injection (Protege seu Banco de Dados)
         - Name: AWS-AWSManagedRulesSQLiRuleSet
           Priority: 1
           OverrideAction:
@@ -36,8 +32,6 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: SQLiRule
             SampledRequestsEnabled: true
-
-        # Proteção contra ataques comuns (OWASP Top 10)
         - Name: AWS-AWSManagedRulesCommonRuleSet
           Priority: 2
           OverrideAction:
@@ -53,7 +47,6 @@ Resources:
 
 Outputs:
   WebACLArn:
-    Description: ARN do WAF para o CloudFront
     Value: !GetAtt CloudFrontWebACL.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-WafArn"
