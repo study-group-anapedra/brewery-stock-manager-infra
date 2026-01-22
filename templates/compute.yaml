@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Master do Job 3 - Compute (ASG + CodeDeploy)
-
 Parameters:
   ProjectName:
     Type: String
@@ -20,7 +19,6 @@ Parameters:
   DBPassword:
     Type: String
     NoEcho: true
-  # ADICIONADO: O Agregador precisa receber o nome do banco para repassar
   DBName:
     Type: String
     Default: stockmanagerprod
@@ -41,7 +39,6 @@ Resources:
         KeyPairName: !Ref KeyPairName
         DBUsername: !Ref DBUsername
         DBPassword: !Ref DBPassword
-        # ADICIONADO: Repassando o nome do banco para o módulo ASG
         DBName: !Ref DBName
 
   # =========================
@@ -58,18 +55,3 @@ Resources:
         Environment: !Ref Environment
         AsgName: !GetAtt AsgStack.Outputs.AutoScalingGroupName
 
-Outputs:
-  AutoScalingGroupName:
-    Value: !GetAtt AsgStack.Outputs.AutoScalingGroupName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
-  CodeDeployApplicationName:
-    Value: !GetAtt CodeDeployStack.Outputs.CodeDeployApplicationName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CodeDeployApp"
-
-  CodeDeployDeploymentGroupName:
-    Value: !GetAtt CodeDeployStack.Outputs.DeploymentGroupName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CodeDeployDG"
