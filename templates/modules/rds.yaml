@@ -1,26 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Modulo RDS Aurora PostgreSQL - Corrigido para Conexão Automática
+Description: Modulo RDS Aurora PostgreSQL
 
 Parameters:
-  ProjectName:
-    Type: String
-  Environment:
-    Type: String
-  DBUsername:
-    Type: String
-  DBPassword:
-    Type: String
-    NoEcho: true
-  DBName:
-    Type: String
-  DBInstanceClass:
-    Type: String
+  ProjectName: { Type: String }
+  Environment: { Type: String }
+  DBUsername: { Type: String }
+  DBPassword: { Type: String, NoEcho: true }
+  DBName: { Type: String }
+  DBInstanceClass: { Type: String }
 
 Resources:
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnets privadas para Aurora PostgreSQL
+      DBSubnetGroupDescription: Subnets privadas para Aurora
       SubnetIds:
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
@@ -37,36 +30,18 @@ Resources:
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
-      BackupRetentionPeriod: 7
       StorageEncrypted: true
-      DeletionProtection: false
 
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: !Sub "${ProjectName}-${Environment}-instance-1"
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       Engine: aurora-postgresql
       EngineVersion: "15.8"
-      PubliclyAccessible: false
 
 Outputs:
   DBEndpoint:
-    Description: Endpoint de leitura/escrita para o backend
-    # CORREÇÃO: O atributo correto para o endereço do cluster é Endpoint.Address
     Value: !GetAtt DBCluster.Endpoint.Address
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"
-  
-  DBPort:
-    Description: Porta padrão do PostgreSQL
-    Value: "5432"
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DBPort"
-
-  DBNameExport:
-    Description: Nome do banco de dados para a string de conexão
-    Value: !Ref DBName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DBName"

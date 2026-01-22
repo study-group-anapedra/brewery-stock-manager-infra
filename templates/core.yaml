@@ -102,20 +102,3 @@ Resources:
         DomainName: !Ref DomainName
         # Conecta o WAF automaticamente aqui
         WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
-
-Outputs:
-  # Exports para o Job 3 (Compute) conectar o Backend automaticamente
-  DBEndpoint:
-    Value: !GetAtt RdsStack.Outputs.DBEndpoint
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"
-  
-  RedisEndpoint:
-    Value: !GetAtt RedisStack.Outputs.RedisEndpoint
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-RedisEndpoint"
-
-  TargetGroupArn:
-    Value: !GetAtt AlbStack.Outputs.TargetGroupArn
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
