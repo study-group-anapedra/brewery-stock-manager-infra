@@ -44,8 +44,7 @@ jobs:
             --template-file templates/foundation.yaml \
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS
-
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 2 - CORE
@@ -55,6 +54,7 @@ jobs:
     needs: deploy-foundation
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -67,8 +67,7 @@ jobs:
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides $PARAMS
-
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 3 - COMPUTE
@@ -78,6 +77,7 @@ jobs:
     needs: deploy-core
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -90,8 +90,7 @@ jobs:
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS
-
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 4 - MONITORING
@@ -101,6 +100,7 @@ jobs:
     needs: deploy-compute
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -112,8 +112,7 @@ jobs:
           aws cloudformation deploy \
             --template-file templates/monitoring.yaml \
             --stack-name ${{ env.STACK_MONITORING }} \
-            --parameter-overrides $PARAMS
-
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 5 - DNS
@@ -123,6 +122,7 @@ jobs:
     needs: deploy-monitoring
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
