@@ -10,6 +10,9 @@ Parameters:
     Type: String
 
 Resources:
+  # ==================================================
+  # Load Balancer - Porta de entrada pública
+  # ==================================================
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -22,19 +25,29 @@ Resources:
       SecurityGroups:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AlbSG"
 
+  # ==================================================
+  # Target Group - Onde o backend será registrado
+  # ==================================================
   AppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-tg"
       VpcId:
         Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
-      Port: 8080
+      Port: 8080 # Porta padrão Spring Boot
       Protocol: HTTP
       TargetType: instance
       HealthCheckPath: /actuator/health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
       Matcher:
-        HttpCode: 200
+        HttpCode: "200,302" # Aceita 302 caso haja redirecionamento de auth
 
+  # ==================================================
+  # Listeners (HTTPS e Redirecionamento HTTP)
+  # ==================================================
   HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -66,21 +79,15 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AlbDnsName"
 
-  AlbHostedZoneId:
-    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbHostedZoneId"
-
   TargetGroupArn:
     Value: !Ref AppTargetGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
 
-  AlbFullName:
-    Description: ALB Full Name (necessário para CloudWatch Alarms)
-    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+  AlbCanonicalHostedZoneID:
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbFullName"
+      Name: !Sub "${ProjectName}-${Environment}-AlbHostedZoneId"
 
 
 

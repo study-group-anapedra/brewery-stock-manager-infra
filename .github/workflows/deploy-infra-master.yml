@@ -62,7 +62,7 @@ jobs:
 
       - name: Deploy Core Stack
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' cloudformation/environments/prod/parameters-core-prod.json)
           aws cloudformation deploy \
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \

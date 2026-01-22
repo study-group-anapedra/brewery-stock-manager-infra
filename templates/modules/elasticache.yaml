@@ -4,24 +4,22 @@ Description: ElastiCache Redis para camada de cache da aplicação
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-
   CacheNodeType:
     Type: String
     Default: cache.t3.micro
 
 Resources:
-
   # ==================================================
-  # Subnet Group do Redis (subnets privadas APP)
+  # Subnet Group do Redis
   # ==================================================
   RedisSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
       Description: Subnets privadas para Redis
       SubnetIds:
+        # Ajustado para bater com os exports do Job 1 (VPC)
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
 
@@ -31,7 +29,7 @@ Resources:
   RedisSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Redis SG
+      GroupDescription: !Sub "Acesso ao Redis para ${ProjectName}"
       VpcId:
         Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-id"
       SecurityGroupIngress:
@@ -40,15 +38,12 @@ Resources:
           ToPort: 6379
           SourceSecurityGroupId:
             Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-redis-sg"
 
   # ==================================================
-  # Redis Cluster (Single Node – custo controlado)
+  # Redis Cluster
   # ==================================================
   RedisCluster:
     Type: AWS::ElastiCache::CacheCluster
@@ -58,13 +53,19 @@ Resources:
       CacheNodeType: !Ref CacheNodeType
       NumCacheNodes: 1
       VpcSecurityGroupIds:
-        - !Ref RedisSecurityGroup
+        - !GetAtt RedisSecurityGroup.GroupId
       CacheSubnetGroupName: !Ref RedisSubnetGroup
       Port: 6379
 
 Outputs:
   RedisEndpoint:
-    Description: Endpoint do Redis
+    Description: Host do Redis para o backend
     Value: !GetAtt RedisCluster.RedisEndpoint.Address
     Export:
       Name: !Sub "${ProjectName}-${Environment}-RedisEndpoint"
+
+  RedisPort:
+    Description: Porta do Redis
+    Value: "6379"
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-RedisPort"

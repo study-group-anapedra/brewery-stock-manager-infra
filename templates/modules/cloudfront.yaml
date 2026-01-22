@@ -18,7 +18,11 @@ Parameters:
 
   WebACLArn:
     Type: String
+    Default: ""
     Description: "ARN do WAFv2 (Scope = CLOUDFRONT)"
+
+Conditions:
+  HasWebACL: !Not [!Equals [!Ref WebACLArn, ""]]
 
 Resources:
   CloudFrontDistribution:
@@ -28,7 +32,8 @@ Resources:
         Enabled: true
         Comment: !Sub "${ProjectName}-${Environment}-cloudfront"
 
-        WebACLId: !Ref WebACLArn
+        # CORREÇÃO: Só associa o WAF se o parâmetro não estiver vazio
+        WebACLId: !If [HasWebACL, !Ref WebACLArn, !Ref "AWS::NoValue"]
 
         PriceClass: PriceClass_100
         HttpVersion: http2
@@ -50,26 +55,12 @@ Resources:
         DefaultCacheBehavior:
           TargetOriginId: alb-origin
           ViewerProtocolPolicy: redirect-to-https
-
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-            - PUT
-            - POST
-            - PATCH
-            - DELETE
-
-          CachedMethods:
-            - GET
-            - HEAD
-
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
           Compress: true
-
-          ForwardedValues:
-            QueryString: true
-            Cookies:
-              Forward: all
+          # CORREÇÃO: Utilizando CachePolicy moderno para melhor performance com backend
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingOptimized
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # AllViewerExceptHostHeader
 
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateARN
@@ -78,19 +69,11 @@ Resources:
 
 Outputs:
   CloudFrontDNS:
-    Description: "DNS público do CloudFront"
     Value: !GetAtt CloudFrontDistribution.DomainName
     Export:
       Name: !Sub "${ProjectName}-${Environment}-CloudFrontDNS"
 
   CloudFrontHostedZoneId:
-    Description: "Hosted Zone ID fixo do CloudFront para Alias no Route53"
     Value: "Z2FDTNDATAQYW2"
     Export:
       Name: !Sub "${ProjectName}-${Environment}-CloudFrontHostedZoneId"
-
-  CloudFrontDistributionId:
-    Description: "ID da distribuição CloudFront (útil para automações futuras)"
-    Value: !Ref CloudFrontDistribution
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDistributionId"

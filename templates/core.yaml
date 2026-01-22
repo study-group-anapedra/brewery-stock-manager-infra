@@ -1,43 +1,44 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Core Stack - ALB, RDS, Redis, EFS e CloudFront
+Description: Core Stack - ALB, RDS, Redis, EFS, WAF e CloudFront
 
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-
   ArtifactsBucket:
     Type: String
-    Description: S3 bucket where CloudFormation modules are stored
-
   CertificateARN:
     Type: String
-
   DomainName:
     Type: String
-
   WebACLArn:
     Type: String
-
+    Default: "" 
   DBUsername:
     Type: String
-
   DBPassword:
     Type: String
     NoEcho: true
-
   DBName:
     Type: String
-
   DBInstanceClass:
     Type: String
 
 Resources:
+  # ==================================================
+  # WAF - Criado primeiro para proteger o CloudFront
+  # ==================================================
+  WafStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/waf.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
 
   # ==================================================
-  # ALB
+  # ALB - Porta de entrada
   # ==================================================
   AlbStack:
     Type: AWS::CloudFormation::Stack
@@ -49,12 +50,11 @@ Resources:
         CertificateARN: !Ref CertificateARN
 
   # ==================================================
-  # RDS
+  # RDS - Banco de Dados (Depende do ALB pelos SGs)
   # ==================================================
   RdsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - AlbStack
+    DependsOn: AlbStack
     Properties:
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/rds.yaml"
       Parameters:
@@ -66,7 +66,7 @@ Resources:
         DBInstanceClass: !Ref DBInstanceClass
 
   # ==================================================
-  # REDIS
+  # Redis e EFS - Camadas de Cache e Persistência
   # ==================================================
   RedisStack:
     Type: AWS::CloudFormation::Stack
@@ -76,9 +76,6 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # ==================================================
-  # EFS
-  # ==================================================
   EfsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -88,12 +85,13 @@ Resources:
         Environment: !Ref Environment
 
   # ==================================================
-  # CLOUDFRONT (entra no Core)
+  # CloudFront - Usa o WAF e o ALB criados acima
   # ==================================================
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn:
+    DependsOn: 
       - AlbStack
+      - WafStack
     Properties:
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudfront.yaml"
       Parameters:
@@ -101,54 +99,22 @@ Resources:
         Environment: !Ref Environment
         CertificateARN: !Ref CertificateARN
         DomainName: !Ref DomainName
-        WebACLArn: !Ref WebACLArn
+        # Conecta o WAF automaticamente aqui
+        WebACLArn: !GetAtt WafStack.Outputs.WebACLArn
 
 Outputs:
-
-  AlbDnsName:
-    Description: DNS do ALB
-    Value: !GetAtt AlbStack.Outputs.AlbDnsName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbDnsName"
-
-  TargetGroupArn:
-    Description: Target Group para o ASG
-    Value: !GetAtt AlbStack.Outputs.TargetGroupArn
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
-
+  # Exports para o Job 3 (Compute) conectar o Backend automaticamente
   DBEndpoint:
-    Description: Endpoint do banco
     Value: !GetAtt RdsStack.Outputs.DBEndpoint
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"
-
-  DBPort:
-    Description: Porta do banco
-    Value: !GetAtt RdsStack.Outputs.DBPort
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DBPort"
-
+  
   RedisEndpoint:
-    Description: Endpoint do Redis
     Value: !GetAtt RedisStack.Outputs.RedisEndpoint
     Export:
       Name: !Sub "${ProjectName}-${Environment}-RedisEndpoint"
 
-  EfsId:
-    Description: ID do EFS
-    Value: !GetAtt EfsStack.Outputs.EfsFileSystemId
+  TargetGroupArn:
+    Value: !GetAtt AlbStack.Outputs.TargetGroupArn
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-EfsId"
-
-  CloudFrontDNS:
-    Description: DNS do CloudFront
-    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDNS
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontDNS"
-
-  CloudFrontHostedZoneId:
-    Description: Hosted Zone ID do CloudFront
-    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontHostedZoneId
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-CloudFrontHostedZoneId"
+      Name: !Sub "${ProjectName}-${Environment}-TargetGroupArn"

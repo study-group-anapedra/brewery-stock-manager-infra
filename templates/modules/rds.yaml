@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Modulo RDS Aurora PostgreSQL - Corrigido
+Description: Modulo RDS Aurora PostgreSQL - Corrigido para Conexão Automática
 
 Parameters:
   ProjectName:
@@ -53,13 +53,20 @@ Resources:
 
 Outputs:
   DBEndpoint:
-    Description: Endpoint do Cluster Aurora
+    Description: Endpoint de leitura/escrita para o backend
+    # CORREÇÃO: O atributo correto para o endereço do cluster é Endpoint.Address
     Value: !GetAtt DBCluster.Endpoint.Address
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DBEndpoint"
   
- 
   DBPort:
+    Description: Porta padrão do PostgreSQL
     Value: "5432"
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DBPort"
+
+  DBNameExport:
+    Description: Nome do banco de dados para a string de conexão
+    Value: !Ref DBName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DBName"
