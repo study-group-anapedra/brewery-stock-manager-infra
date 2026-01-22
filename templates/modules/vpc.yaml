@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Base - Network, Subnets, Security Groups and Routing (MODULE – no exports here)
+Description: VPC Base - Network, Subnets and Routing (MODULE – network only)
 
 Parameters:
   Environment:
@@ -61,9 +61,6 @@ Resources:
       AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.1.0/24
       MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-public-az1"
 
   PublicSubnetAZ2:
     Type: AWS::EC2::Subnet
@@ -72,9 +69,6 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.2.0/24
       MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-public-az2"
 
   PrivateAppAZ1:
     Type: AWS::EC2::Subnet
@@ -82,9 +76,6 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.21.0/24
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-private-app-az1"
 
   PrivateAppAZ2:
     Type: AWS::EC2::Subnet
@@ -92,9 +83,6 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.22.0/24
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-private-app-az2"
 
   PrivateDbAZ1:
     Type: AWS::EC2::Subnet
@@ -102,9 +90,6 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.0.31.0/24
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-private-db-az1"
 
   PrivateDbAZ2:
     Type: AWS::EC2::Subnet
@@ -112,78 +97,14 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [1, !GetAZs ""]
       CidrBlock: 10.0.32.0/24
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
   # =========================
-  # SECURITY GROUPS
-  # =========================
-  AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for Load Balancer
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
-
-  AppSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for application instances
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          SourceSecurityGroupId: !Ref AlbSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-sg"
-
-  DbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for database
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref AppSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-db-sg"
-
-  # =========================
-  # ROUTE TABLES
+  # ROUTES
   # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-public-rt"
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -197,9 +118,6 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-private-rt"
 
   PrivateRoute:
     Type: AWS::EC2::Route
@@ -210,7 +128,7 @@ Resources:
       NatGatewayId: !Ref NatGateway
 
   # =========================
-  # ROUTE ASSOCIATIONS
+  # ASSOCIATIONS
   # =========================
   PublicAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -248,12 +166,7 @@ Resources:
       SubnetId: !Ref PrivateDbAZ2
       RouteTableId: !Ref PrivateRouteTable
 
-# =========================
-# OUTPUTS
-# (SEM EXPORT – só retornam valores para o foundation.yaml)
-# =========================
 Outputs:
-
   VpcId:
     Value: !Ref VPC
 
@@ -274,12 +187,3 @@ Outputs:
 
   PrivateDbSubnetAZ2:
     Value: !Ref PrivateDbAZ2
-
-  AlbSecurityGroup:
-    Value: !Ref AlbSecurityGroup
-
-  AppSecurityGroup:
-    Value: !Ref AppSecurityGroup
-
-  DbSecurityGroup:
-    Value: !Ref DbSecurityGroup
