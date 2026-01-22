@@ -34,17 +34,24 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Primeiro: subir os módulos
+      - name: Upload CloudFormation modules to S3
+        run: |
+          aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
+
+      # Depois: rodar o Foundation
       - name: Deploy Foundation Stack
         run: |
           aws cloudformation deploy \
             --template-file templates/foundation.yaml \
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides file://environments/prod/parameters-foundation-prod.json
-
+            --parameter-overrides \
+              file://environments/prod/parameters-foundation-prod.json \
+              ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
-# JOB 2 - CORE (ALB + RDS + Redis + EFS + CloudFront)
+# JOB 2 - CORE
 # ==================================================
   deploy-core:
     name: Deploy Core Infrastructure
@@ -58,21 +65,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload CloudFormation modules to S3
-        run: |
-          aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
-
       - name: Deploy Core Stack
         run: |
           aws cloudformation deploy \
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides file://environments/prod/parameters-core-prod.json
-
+            --parameter-overrides \
+              file://environments/prod/parameters-core-prod.json \
+              ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
-# JOB 3 - COMPUTE (ASG + CodeDeploy)
+# JOB 3 - COMPUTE
 # ==================================================
   deploy-compute:
     name: Deploy Compute Layer (ASG + CodeDeploy)
@@ -92,11 +96,12 @@ jobs:
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides file://environments/prod/parameters-compute-prod.json
-
+            --parameter-overrides \
+              file://environments/prod/parameters-compute-prod.json \
+              ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
-# JOB 4 - MONITORING (CloudWatch)
+# JOB 4 - MONITORING
 # ==================================================
   deploy-monitoring:
     name: Deploy Monitoring (CloudWatch)
@@ -114,16 +119,17 @@ jobs:
         run: |
           aws cloudformation deploy \
             --template-file templates/monitoring.yaml \
-            --stack-name ${{ env.STACK_MONITORING }}
-
+            --stack-name ${{ env.STACK_MONITORING }} \
+            --parameter-overrides \
+              ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
-# JOB 5 - DNS (Route53)
+# JOB 5 - DNS (ÚLTIMO)
 # ==================================================
   deploy-dns:
     name: Deploy DNS (Route53 Records)
     runs-on: ubuntu-latest
-    needs: deploy-core
+    needs: deploy-monitoring
     steps:
       - uses: actions/checkout@v4
 
@@ -137,4 +143,5 @@ jobs:
           aws cloudformation deploy \
             --template-file templates/modules/route53-records.yaml \
             --stack-name ${{ env.STACK_DNS }} \
-            --parameter-overrides file://environments/prod/parameters-dns-prod.json
+            --parameter-overrides \
+              file://environments/prod/parameters-dns-prod.json

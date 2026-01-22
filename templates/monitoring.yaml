@@ -8,6 +8,10 @@ Parameters:
   Environment:
     Type: String
 
+  ArtifactsBucket:
+    Type: String
+    Description: S3 bucket where CloudFormation modules are stored
+
 Resources:
 
   # ==================================================
@@ -16,7 +20,7 @@ Resources:
   AlbAlarmsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-alb.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudwatch-alarms-alb.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -27,7 +31,7 @@ Resources:
   AsgAlarmsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alarms-asg.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudwatch-alarms-asg.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -38,7 +42,7 @@ Resources:
   AlbLogsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-alb-logs.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudwatch-alb-logs.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -49,7 +53,7 @@ Resources:
   Ec2LogsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3.amazonaws.com/stock-manager-prod-artifacts/modules/cloudwatch-ec2-logs.yaml
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/cloudwatch-ec2-logs.yaml"
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
