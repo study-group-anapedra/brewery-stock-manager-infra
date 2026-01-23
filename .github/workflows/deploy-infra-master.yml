@@ -84,8 +84,9 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
+
 # ==================================================
-# JOB 4 E 5 (MANTER COMO ESTÃO)
+# JOB 4 - MONITORING
 # ==================================================
   deploy-monitoring:
     runs-on: ubuntu-latest
@@ -98,8 +99,18 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - name: Deploy Monitoring
         run: |
+          # Garante que o caminho do JSON está correto conforme sua estrutura de pastas
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-monitoring-prod.json)
-          aws cloudformation deploy --template-file templates/monitoring.yaml --stack-name ${{ env.STACK_MONITORING }} --parameter-overrides $PARAMS
+          
+          aws cloudformation deploy \
+            --template-file templates/monitoring.yaml \
+            --stack-name ${{ env.STACK_MONITORING }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+
+# ==================================================
+# JOB  5 - DNS
+# ==================================================            
 
   deploy-dns:
     runs-on: ubuntu-latest
