@@ -25,16 +25,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Upload modules
+
+      - name: Upload modules to S3
         run: aws s3 sync templates/modules s3://${{ env.S3_BUCKET }}/modules
+
       - name: Deploy Foundation
         run: |
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-foundation-prod.json)
-          aws cloudformation deploy --template-file templates/foundation.yaml --stack-name ${{ env.STACK_FOUNDATION }} --capabilities CAPABILITY_NAMED_IAM --parameter-overrides $PARAMS
+          aws cloudformation deploy \
+            --template-file templates/foundation.yaml \
+            --stack-name ${{ env.STACK_FOUNDATION }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides "$PARAMS"
+
 
 # ==================================================
 # JOB 2 - CORE
@@ -44,45 +52,59 @@ jobs:
     needs: deploy-foundation
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy Core
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)          
-          aws cloudformation deploy --template-file templates/core.yaml --stack-name ${{ env.STACK_CORE }} --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)
+          aws cloudformation deploy \
+            --template-file templates/core.yaml \
+            --stack-name ${{ env.STACK_CORE }} \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+
 
 # ==================================================
-# JOB 3 - COMPUTE (Ajustado para evitar erro Key=Value)
+# JOB 3 - COMPUTE
 # ==================================================
   deploy-compute:
     runs-on: ubuntu-latest
     needs: deploy-core
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Deploy Compute Stack
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext
+
+      - name: Prepare parameters with secrets and variables
         run: |
-          # 1. Mapeia variáveis do GitHub para nomes simples de ambiente
           export DB_USERNAME="${{ secrets.DB_USERNAME }}"
           export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
           export KEY_NAME="${{ vars.KEY_NAME }}"
           export LATEST_AMI="${{ vars.LATEST_AMI }}"
 
-          # 2. Injeta os valores no JSON
           envsubst < environments/prod/parameters-compute-prod.json > parameters-final.json
-          
-          # 3. Processa e executa o deploy
+
+          echo "Parameters after substitution:"
+          cat parameters-final.json
+
+      - name: Deploy Compute
+        run: |
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-final.json)
           aws cloudformation deploy \
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
@@ -93,35 +115,40 @@ jobs:
     needs: deploy-compute
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy Monitoring
         run: |
-          # Garante que o caminho do JSON está correto conforme sua estrutura de pastas
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-monitoring-prod.json)
-          
           aws cloudformation deploy \
             --template-file templates/monitoring.yaml \
             --stack-name ${{ env.STACK_MONITORING }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+
 
 # ==================================================
-# JOB  5 - DNS
-# ==================================================            
-
+# JOB 5 - DNS
+# ==================================================
   deploy-dns:
     runs-on: ubuntu-latest
     needs: deploy-monitoring
     steps:
       - uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy DNS
         run: |
           PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-dns-prod.json)
-          aws cloudformation deploy --template-file templates/modules/route53-records.yaml --stack-name ${{ env.STACK_DNS }} --parameter-overrides $PARAMS
+          aws cloudformation deploy \
+            --template-file templates/modules/route53-records.yaml \
+            --stack-name ${{ env.STACK_DNS }} \
+            --parameter-overrides "$PARAMS"
