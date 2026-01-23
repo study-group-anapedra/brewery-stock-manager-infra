@@ -1,19 +1,18 @@
-
 [
   { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
   { "ParameterKey": "Environment", "ParameterValue": "prod" },
 
   { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
 
-  { "ParameterKey": "DBUsername", "ParameterValue": "DB_USERNAME" },
-  { "ParameterKey": "DBPassword", "ParameterValue": "DB_PASSWORD" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "${DB_USERNAME}" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "${DB_PASSWORD}" },
 
   { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
   { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t4g.medium" },
 
   {
     "ParameterKey": "CertificateARN",
-    "ParameterValue": "CERTIFICATE_ARN"
+    "ParameterValue": "${CERTIFICATE_ARN}"
   },
 
   { "ParameterKey": "DomainName", "ParameterValue": "api.asantanadev.com" },

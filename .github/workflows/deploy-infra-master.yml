@@ -41,11 +41,10 @@ jobs:
             --template-file templates/foundation.yaml \
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS
-
+            --parameter-overrides "$PARAMS"
 
 # ==================================================
-# JOB 2 - CORE
+# JOB 2 - CORE  (corrigido com envsubst)
 # ==================================================
   deploy-core:
     runs-on: ubuntu-latest
@@ -58,15 +57,28 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext
+
+      - name: Prepare core parameters with secrets and variables
+        run: |
+          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
+          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export CERTIFICATE_ARN="${{ vars.CERTIFICATE_ARN }}"
+
+          envsubst < environments/prod/parameters-core-prod.json > parameters-core-final.json
+
+          echo "Parameters after substitution:"
+          cat parameters-core-final.json
+
       - name: Deploy Core
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-core-final.json)
           aws cloudformation deploy \
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
-
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 3 - COMPUTE
@@ -92,20 +104,19 @@ jobs:
           export KEY_NAME="${{ vars.KEY_NAME }}"
           export LATEST_AMI="${{ vars.LATEST_AMI }}"
 
-          envsubst < environments/prod/parameters-compute-prod.json > parameters-final.json
+          envsubst < environments/prod/parameters-compute-prod.json > parameters-compute-final.json
 
           echo "Parameters after substitution:"
-          cat parameters-final.json
+          cat parameters-compute-final.json
 
       - name: Deploy Compute
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-final.json)
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-compute-final.json)
           aws cloudformation deploy \
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
-
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 4 - MONITORING
@@ -128,8 +139,7 @@ jobs:
             --template-file templates/monitoring.yaml \
             --stack-name ${{ env.STACK_MONITORING }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
-
+            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
 
 # ==================================================
 # JOB 5 - DNS
@@ -151,4 +161,4 @@ jobs:
           aws cloudformation deploy \
             --template-file templates/modules/route53-records.yaml \
             --stack-name ${{ env.STACK_DNS }} \
-            --parameter-overrides $PARAMS
+            --parameter-overrides "$PARAMS"
