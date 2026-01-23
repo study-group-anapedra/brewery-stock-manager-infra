@@ -3,11 +3,11 @@
   { "ParameterKey": "Environment", "ParameterValue": "prod" },
   { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
 
-  { "ParameterKey": "AmiId", "ParameterValue": "ami-0abc123456789def0" },
+  { "ParameterKey": "AmiId", "ParameterValue": "${{ vars.LATEST_AMI }}" },
   { "ParameterKey": "InstanceType", "ParameterValue": "t3.small" },
-  { "ParameterKey": "KeyPairName", "ParameterValue": "sua-keypair-aqui" },
+  { "ParameterKey": "KeyPairName", "ParameterValue": "${{ vars.KEY_NAME }}" },
 
   { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
-  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
-  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" }
+  { "ParameterKey": "DBUsername", "ParameterValue": "${{ secrets.DB_USERNAME }}" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "${{ secrets.DB_PASSWORD }}" }
 ]
