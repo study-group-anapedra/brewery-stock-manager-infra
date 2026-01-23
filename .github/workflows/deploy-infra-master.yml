@@ -45,27 +45,44 @@ jobs:
 
 
 # ==================================================
-# JOB 2 - CORE  (SEM envsubst, direto do JSON)
+# JOB 2 - CORE (Corrigido com injeção de variáveis)
 # ==================================================
-  deploy-core:
-    runs-on: ubuntu-latest
-    needs: deploy-foundation
-    steps:
-      - uses: actions/checkout@v4
+deploy-core:
+  runs-on: ubuntu-latest
+  needs: deploy-foundation
+  steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy Core
-        run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)
-          aws cloudformation deploy \
-            --template-file templates/core.yaml \
-            --stack-name ${{ env.STACK_CORE }} \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+    - name: Deploy Core
+      run: |
+        # 1. Exporta variáveis necessárias para o envsubst
+        export DB_USERNAME="${{ secrets.DB_USERNAME }}"
+        export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+        export CERTIFICATE_ARN="${{ vars.CERTIFICATE_ARN }}"
+
+        # 2. Substitui as variáveis no JSON
+        envsubst < environments/prod/parameters-core-prod.json > parameters-resolved.json
+
+        echo "Parameters resolved:"
+        cat parameters-resolved.json
+
+        # 3. Converte para o formato Key=Value
+        PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-resolved.json)
+
+        # 4. Executa o deploy
+        aws cloudformation deploy \
+          --template-file templates/core.yaml \
+          --stack-name ${{ env.STACK_CORE }} \
+          --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+          --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+
 
 
 # ==================================================
