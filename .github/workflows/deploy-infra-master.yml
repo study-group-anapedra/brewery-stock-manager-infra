@@ -45,7 +45,7 @@ jobs:
 
 
 # ==================================================
-# JOB 2 - CORE  (AGORA COM ENV SUBST)
+# JOB 2 - CORE  (SEM envsubst, direto do JSON)
 # ==================================================
   deploy-core:
     runs-on: ubuntu-latest
@@ -58,23 +58,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install envsubst
-        run: sudo apt-get update && sudo apt-get install -y gettext
-
-      - name: Prepare CORE parameters
-        run: |
-          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
-          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          export CERTIFICATE_ARN="${{ vars.CERTIFICATE_ARN }}"
-
-          envsubst < environments/prod/parameters-core-prod.json > parameters-core-final.json
-
-          echo "CORE parameters after substitution:"
-          cat parameters-core-final.json
-
       - name: Deploy Core
         run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-core-final.json)
+          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' environments/prod/parameters-core-prod.json)
           aws cloudformation deploy \
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
@@ -83,7 +69,7 @@ jobs:
 
 
 # ==================================================
-# JOB 3 - COMPUTE
+# JOB 3 - COMPUTE  (envsubst direto no pipe, sem arquivo final)
 # ==================================================
   deploy-compute:
     runs-on: ubuntu-latest
@@ -99,21 +85,15 @@ jobs:
       - name: Install envsubst
         run: sudo apt-get update && sudo apt-get install -y gettext
 
-      - name: Prepare COMPUTE parameters
+      - name: Deploy Compute
         run: |
           export DB_USERNAME="${{ secrets.DB_USERNAME }}"
           export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
           export KEY_NAME="${{ vars.KEY_NAME }}"
           export LATEST_AMI="${{ vars.LATEST_AMI }}"
 
-          envsubst < environments/prod/parameters-compute-prod.json > parameters-compute-final.json
+          PARAMS=$(envsubst < environments/prod/parameters-compute-prod.json | jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"')
 
-          echo "COMPUTE parameters after substitution:"
-          cat parameters-compute-final.json
-
-      - name: Deploy Compute
-        run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-compute-final.json)
           aws cloudformation deploy \
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
