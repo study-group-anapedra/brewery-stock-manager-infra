@@ -192,16 +192,33 @@ Resources:
 # =========================
 # OUTPUTS COM EXPORT (ESSENCIAL PARA CONEXÃO)
 # =========================
+# ... (mantenha o restante dos Resources)
+
 Outputs:
   VpcId:
     Value: !Ref VPC
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcId"
 
+  PublicSubnetAZ1:
+    Value: !Ref PublicSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-public-az1"
+
+  PublicSubnetAZ2:
+    Value: !Ref PublicSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-public-az2"
+
   PrivateAppSubnetAZ1:
     Value: !Ref PrivateAppAZ1
     Export:
       Name: !Sub "${ProjectName}-${Environment}-private-app-az1"
+
+  PrivateAppSubnetAZ2:
+    Value: !Ref PrivateAppAZ2
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-private-app-az2"
 
   PrivateDbSubnetAZ1:
     Value: !Ref PrivateDbAZ1
