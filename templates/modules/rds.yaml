@@ -14,10 +14,10 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: Subnets privadas para Aurora
-      # CORREÇÃO: Nomes batendo com o Export do vpc.yaml
       SubnetIds:
-        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSubnet1"
-        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSubnet1"
+        # Ajustado para bater exatamente com os Exports do vpc.yaml
+        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-private-db-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
   DBCluster:
     Type: AWS::RDS::DBCluster
@@ -30,21 +30,17 @@ Resources:
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
-        # CORREÇÃO: Nome batendo com o Export do security-group.yaml
+        # Importa o Security Group que permite tráfego 10.0.0.0/16 (VPC)
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
       StorageEncrypted: true
-      BackupRetentionPeriod: 1
-      PreferredBackupWindow: "03:00-04:00"
 
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: !Sub "${ProjectName}-${Environment}-instance-1"
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       Engine: aurora-postgresql
       EngineVersion: "15.8"
-      PubliclyAccessible: false
 
 Outputs:
   DBEndpoint:

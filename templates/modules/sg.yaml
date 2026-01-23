@@ -8,6 +8,7 @@ Parameters:
     Type: String
   VpcId:
     Type: String
+    Description: ID da VPC vindo do modulo vpc.yaml
 
 Resources:
   AlbSecurityGroup:
@@ -20,6 +21,13 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-alb-sg"
@@ -31,13 +39,11 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 8080
+          FromPort: 8080 # Porta da aplicação mantida
           ToPort: 8080
           SourceSecurityGroupId: !Ref AlbSecurityGroup
-        # PERMITE ACESSO SSH/SSM SE NECESSÁRIO
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
+      SecurityGroupEgress:
+        - IpProtocol: -1
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
@@ -49,15 +55,19 @@ Resources:
       GroupDescription: DB SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
+        # Regra 1: Permite o tráfego do App (Porta 5432)
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref AppSecurityGroup
-        # REGRA DE OURO: Permite que a VPC fale com o banco (Resolve seu Timeout)
+        # Regra 2: Permite tráfego da rede interna (Resolve o bloqueio do terminal)
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
           CidrIp: 10.0.0.0/16
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-db-sg"
@@ -65,10 +75,15 @@ Resources:
 Outputs:
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
+
   AppSecurityGroup:
     Value: !Ref AppSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AppSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSG"
+
   DbSecurityGroup:
     Value: !Ref DbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-DbSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DbSG"
