@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Modulo RDS Aurora PostgreSQL
+Description: Modulo RDS Aurora PostgreSQL - Versao Final para Entrega
 
 Parameters:
   ProjectName: { Type: String }
@@ -20,8 +20,15 @@ Resources:
 
   DBCluster:
     Type: AWS::RDS::DBCluster
+    DependsOn: DBSubnetGroup # GARANTE QUE A REDE ESTEJA PRONTA [cite: 2025-12-23]
     Properties:
-      # ... (Mantenha as configurações de Engine e EngineVersion)
+      # IDENTIFICADOR V2 PARA EVITAR CONFLITO COM DELECOES ANTIGAS [cite: 2025-12-23]
+      DBClusterIdentifier: !Sub "${ProjectName}-${Environment}-cluster-v2"
+      Engine: aurora-postgresql
+      EngineVersion: "15.8"
+      DatabaseName: !Ref DBName
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
