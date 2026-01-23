@@ -41,7 +41,7 @@ jobs:
             --template-file templates/foundation.yaml \
             --stack-name ${{ env.STACK_FOUNDATION }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides "$PARAMS"
+            --parameter-overrides $PARAMS
 
 
 # ==================================================
@@ -65,7 +65,7 @@ jobs:
             --template-file templates/core.yaml \
             --stack-name ${{ env.STACK_CORE }} \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
@@ -104,7 +104,7 @@ jobs:
             --template-file templates/compute.yaml \
             --stack-name ${{ env.STACK_COMPUTE }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
@@ -128,7 +128,7 @@ jobs:
             --template-file templates/monitoring.yaml \
             --stack-name ${{ env.STACK_MONITORING }} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
@@ -151,4 +151,4 @@ jobs:
           aws cloudformation deploy \
             --template-file templates/modules/route53-records.yaml \
             --stack-name ${{ env.STACK_DNS }} \
-            --parameter-overrides "$PARAMS"
+            --parameter-overrides $PARAMS
