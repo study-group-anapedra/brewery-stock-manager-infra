@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ASG da aplicação + EC2 + UserData com conexão automática ao banco
+Description: ASG da aplicação + EC2 + UserData com conexão automática ao banco (CodeDeploy + RDS)
 
 Parameters:
   ProjectName:
@@ -13,6 +13,7 @@ Parameters:
     Default: t3.small
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
+
   DBUsername:
     Type: String
   DBPassword:
@@ -63,9 +64,12 @@ Resources:
             Fn::Sub:
               - |
                 #!/bin/bash
+                set -e
+
                 yum update -y
                 yum install -y java-21-amazon-corretto awscli ruby wget
 
+                # Instala CodeDeploy Agent
                 cd /home/ec2-user
                 wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
                 chmod +x ./install
@@ -73,15 +77,25 @@ Resources:
                 systemctl enable codedeploy-agent
                 systemctl start codedeploy-agent
 
+                # Diretório da aplicação
                 mkdir -p /home/ec2-user/app
+                chown -R ec2-user:ec2-user /home/ec2-user/app
 
+                # Cria variáveis de ambiente globais para a aplicação
                 cat <<EOF > /etc/profile.d/app_env.sh
-                export DB_URL=jdbc:postgresql://${DBEndpoint}:5432/${DBName}
+                export DB_HOST=${DBEndpoint}
+                export DB_PORT=5432
+                export DB_NAME=${DBName}
                 export DB_USERNAME=${DBUsername}
                 export DB_PASSWORD=${DBPassword}
                 EOF
 
-                chmod +x /etc/profile.d/app_env.sh
+                chmod 600 /etc/profile.d/app_env.sh
+                chown root:root /etc/profile.d/app_env.sh
+
+                echo "Arquivo /etc/profile.d/app_env.sh criado:"
+                cat /etc/profile.d/app_env.sh
+
               - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
                 DBName: !Ref DBName
@@ -116,4 +130,5 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
 

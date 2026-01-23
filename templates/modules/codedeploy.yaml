@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CodeDeploy para aplicação Stock Manager
+Description: CodeDeploy para aplicação Stock Manager integrado ao AutoScalingGroup
 
 Parameters:
   ProjectName:
@@ -37,8 +37,18 @@ Resources:
       ApplicationName: !Ref CodeDeployApplication
       DeploymentGroupName: !Sub "${ProjectName}-${Environment}-dg"
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+
       AutoScalingGroups:
         - !Ref AsgName
+
       DeploymentStyle:
         DeploymentType: IN_PLACE
         DeploymentOption: WITHOUT_TRAFFIC_CONTROL
+
+      # Garante que só deploya quando a instância está saudável
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+
+      DeploymentConfigName: CodeDeployDefault.OneAtATime

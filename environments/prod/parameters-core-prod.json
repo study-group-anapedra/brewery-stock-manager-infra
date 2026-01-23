@@ -1,12 +1,19 @@
 [
   { "ParameterKey": "ProjectName", "ParameterValue": "stock-manager" },
   { "ParameterKey": "Environment", "ParameterValue": "prod" },
+
   { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
-  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
-  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" },
+
+  { "ParameterKey": "DBUsername", "ParameterValue": "${DB_USERNAME}" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "${DB_PASSWORD}" },
   { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
   { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t4g.medium" },
-  { "ParameterKey": "CertificateARN", "ParameterValue": "arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096" },
+
+  {
+    "ParameterKey": "CertificateARN",
+    "ParameterValue": "arn:aws:acm:us-east-1:365646127398:certificate/63e80d1b-c0cc-402b-a280-409296304096"
+  },
+
   { "ParameterKey": "DomainName", "ParameterValue": "api.asantanadev.com" },
   { "ParameterKey": "WebACLArn", "ParameterValue": "" }
 ]
