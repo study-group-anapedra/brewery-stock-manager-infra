@@ -5,7 +5,6 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: [dev, prod]
-
   ProjectName:
     Type: String
 
@@ -43,7 +42,7 @@ Resources:
 
   NatGateway:
     Type: AWS::EC2::NatGateway
-    DependsOn: NatEip
+    DependsOn: AttachGateway # GARANTE QUE A REDE EXISTE ANTES DO NAT
     Properties:
       AllocationId: !GetAtt NatEip.AllocationId
       SubnetId: !Ref PublicSubnetAZ1
@@ -190,26 +189,26 @@ Resources:
       SubnetId: !Ref PrivateDbAZ2
       RouteTableId: !Ref PrivateRouteTable
 
-
-# consiga ler os IDs e passar para os próximos módulos.
+# =========================
+# OUTPUTS COM EXPORT (PARA OS OUTROS MÓDULOS ENXERGAREM)
+# =========================
 Outputs:
   VpcId:
     Value: !Ref VPC
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-VpcId"
 
   PublicSubnetAZ1:
     Value: !Ref PublicSubnetAZ1
-
-  PublicSubnetAZ2:
-    Value: !Ref PublicSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-PublicSubnet1"
 
   PrivateAppSubnetAZ1:
     Value: !Ref PrivateAppAZ1
-
-  PrivateAppSubnetAZ2:
-    Value: !Ref PrivateAppAZ2
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSubnet1"
 
   PrivateDbSubnetAZ1:
     Value: !Ref PrivateDbAZ1
-
-  PrivateDbSubnetAZ2:
-    Value: !Ref PrivateDbAZ2
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DbSubnet1"
