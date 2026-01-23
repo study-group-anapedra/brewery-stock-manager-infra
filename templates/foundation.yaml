@@ -13,6 +13,7 @@ Parameters:
     Type: String
 
 Resources:
+  # 1. Stack de Rede
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -21,6 +22,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  # 2. Stack de Segurança
   SecurityGroupStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VpcStack
@@ -31,7 +33,7 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
-# REMOVIDOS OS EXPORTS REPETIDOS PARA EVITAR O ERRO "ALREADY EXPORTED"
+# OUTPUTS SINCRONIZADOS COM OS NOMES DO MÓDULO VPC.YAML
 Outputs:
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
@@ -42,6 +44,7 @@ Outputs:
   PublicSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ2
 
+  # Correção: O vpc.yaml exporta como PrivateAppSubnetAZ1/2 e PrivateDbSubnetAZ1/2
   PrivateAppSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ1
 
@@ -54,6 +57,7 @@ Outputs:
   PrivateDbSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ2
 
+  # Outputs de Segurança
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
 
