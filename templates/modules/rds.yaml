@@ -15,22 +15,15 @@ Resources:
     Properties:
       DBSubnetGroupDescription: Subnets privadas para Aurora
       SubnetIds:
-        # Ajustado para bater exatamente com os Exports do vpc.yaml
-        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-private-db-az1"
-        - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-private-db-az2"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
+        - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
-      DBClusterIdentifier: !Sub "${ProjectName}-${Environment}-aurora-cluster"
-      Engine: aurora-postgresql
-      EngineVersion: "15.8"
-      DatabaseName: !Ref DBName
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
+      # ... (Mantenha as configurações de Engine e EngineVersion)
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
-        # Importa o Security Group que permite tráfego 10.0.0.0/16 (VPC)
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
       StorageEncrypted: true
 
