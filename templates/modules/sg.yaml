@@ -4,22 +4,17 @@ Description: Security Groups base para aplicação monolítica
 Parameters:
   ProjectName:
     Type: String
-
   Environment:
     Type: String
-
-  # CORREÇÃO: Novo parâmetro para receber o ID da VPC diretamente do template pai
   VpcId:
     Type: String
-    Description: ID da VPC criada no modulo vpc.yaml
+    Description: ID da VPC vindo do modulo vpc.yaml
 
 Resources:
-
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB SG
-      # CORREÇÃO: Usando !Ref VpcId em vez de Fn::ImportValue
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -41,7 +36,6 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: App SG
-      # CORREÇÃO: Usando !Ref VpcId
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -59,11 +53,10 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: DB SG
-      # CORREÇÃO: Usando !Ref VpcId
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 5432
+          FromPort: 5432 # Alinhado com Aurora PostgreSQL
           ToPort: 5432
           SourceSecurityGroupId: !Ref AppSecurityGroup
       SecurityGroupEgress:
@@ -76,9 +69,7 @@ Resources:
 Outputs:
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
-
   AppSecurityGroup:
     Value: !Ref AppSecurityGroup
-
   DbSecurityGroup:
     Value: !Ref DbSecurityGroup

@@ -13,6 +13,7 @@ Parameters:
     Type: String
 
 Resources:
+  # 1. Stack de Rede: Cria a VPC e todas as Subnets
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -21,6 +22,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
+  # 2. Stack de Segurança: Cria os Security Groups dentro da VPC acima
   SecurityGroupStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VpcStack
@@ -29,10 +31,11 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        # CORREÇÃO: Passando o ID diretamente para o módulo de segurança
+        # Passa o ID da VPC dinamicamente para o módulo de SG
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
 Outputs:
+  # --- OUTPUTS DE REDE (VPC E SUBNETS) ---
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
     Export:
@@ -68,6 +71,7 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
+  # --- OUTPUTS DE SEGURANÇA (SECURITY GROUPS) ---
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
     Export:
