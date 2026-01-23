@@ -4,8 +4,9 @@
 
   { "ParameterKey": "ArtifactsBucket", "ParameterValue": "stock-manager-prod-artifacts" },
 
-  { "ParameterKey": "DBUsername", "ParameterValue": "${DB_USERNAME}" },
-  { "ParameterKey": "DBPassword", "ParameterValue": "${DB_PASSWORD}" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "dbadmin" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "StockManagerProd2025" },
+
   { "ParameterKey": "DBName", "ParameterValue": "stockmanagerprod" },
   { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t4g.medium" },
 
