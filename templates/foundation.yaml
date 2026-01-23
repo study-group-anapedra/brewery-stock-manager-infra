@@ -13,7 +13,6 @@ Parameters:
     Type: String
 
 Resources:
-  # 1. Stack de Rede: Cria a VPC e todas as Subnets
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -22,7 +21,6 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # 2. Stack de Segurança: Cria os Security Groups dentro da VPC acima
   SecurityGroupStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VpcStack
@@ -31,58 +29,36 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        # Passa o ID da VPC dinamicamente para o módulo de SG
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
+# REMOVIDOS OS EXPORTS REPETIDOS PARA EVITAR O ERRO "ALREADY EXPORTED"
 Outputs:
-  # --- OUTPUTS DE REDE (VPC E SUBNETS) ---
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
 
   PublicSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az1"
 
   PublicSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-public-az2"
 
   PrivateAppSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
 
   PrivateAppSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
 
   PrivateDbSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ1
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
 
   PrivateDbSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ2
-    Export:
-      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
-  # --- OUTPUTS DE SEGURANÇA (SECURITY GROUPS) ---
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
 
   AppSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AppSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AppSG"
 
   DbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DbSG"
