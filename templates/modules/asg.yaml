@@ -24,27 +24,7 @@ Parameters:
     Default: stockmanagerprod
 
 Resources:
-
-  AppInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-
-  AppInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref AppInstanceRole
+  # AppInstanceRole e AppInstanceProfile foram removidos daqui para usar a role fixa que já existe no seu IAM.
 
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -55,7 +35,8 @@ Resources:
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
         IamInstanceProfile:
-          Name: !Ref AppInstanceProfile
+          # Alterado de !Ref para o nome fixo da sua role que tem as permissões corretas.
+          Name: "stock-manager-ec2-role"
         SecurityGroupIds:
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
@@ -130,5 +111,4 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
 
