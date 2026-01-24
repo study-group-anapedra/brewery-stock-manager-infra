@@ -88,42 +88,50 @@ jobs:
 
 
 # ==================================================
-# JOB 3 - COMPUTE
+# JOB 3 - COMPUTE (COM envsubst, obrigatório)
 # ==================================================
   deploy-compute:
     runs-on: ubuntu-latest
     needs: deploy-core
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install envsubst
-        run: sudo apt-get update && sudo apt-get install -y gettext
+    - name: Install envsubst
+      run: sudo apt-get update && sudo apt-get install -y gettext
 
-      - name: Prepare COMPUTE parameters
-        run: |
-          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
-          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          export KEY_NAME="${{ vars.KEY_NAME }}"
-          export LATEST_AMI="${{ vars.LATEST_AMI }}"
+    - name: Prepare COMPUTE parameters
+      run: |
+        # Sanitiza variáveis e secrets
+        export DB_USERNAME="$(echo -n "${{ secrets.DB_USERNAME }}" | tr -d '\r\n')"
+        export DB_PASSWORD="$(echo -n "${{ secrets.DB_PASSWORD }}" | tr -d '\r\n')"
+        export KEY_NAME="$(echo -n "${{ vars.KEY_NAME }}" | tr -d '\r\n')"
+        export LATEST_AMI="$(echo -n "${{ vars.LATEST_AMI }}" | tr -d '\r\n')"
 
-          envsubst < environments/prod/parameters-compute-prod.json > parameters-compute-final.json
+        # Gera JSON final
+        envsubst < environments/prod/parameters-compute-prod.json > parameters-compute-final.json
 
-          echo "COMPUTE parameters after substitution:"
-          cat parameters-compute-final.json
+        echo "COMPUTE parameters after substitution:"
+        cat parameters-compute-final.json
 
-      - name: Deploy Compute
-        run: |
-          PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-compute-final.json)
-          aws cloudformation deploy \
-            --template-file templates/compute.yaml \
-            --stack-name ${{ env.STACK_COMPUTE }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+        # Valida JSON
+        jq '.' parameters-compute-final.json
+
+    - name: Deploy Compute
+      run: |
+        # Converte JSON em parâmetros do CloudFormation
+        PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-compute-final.json)
+
+        aws cloudformation deploy \
+          --template-file templates/compute.yaml \
+          --stack-name ${{ env.STACK_COMPUTE }} \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
+
 
 
 # ==================================================
