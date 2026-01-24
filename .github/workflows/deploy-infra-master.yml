@@ -51,30 +51,40 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-foundation
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install envsubst
-        run: sudo apt-get update && sudo apt-get install -y gettext
+    - name: Install envsubst
+      run: sudo apt-get update && sudo apt-get install -y gettext
 
-      - name: Deploy Core
-        run: |
-          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
-          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          export CERTIFICATE_ARN="${{ vars.CERTIFICATE_ARN }}"
+    - name: Deploy Core
+      run: |
+        # Sanitiza secrets (remove quebras de linha invisíveis)
+        export DB_USERNAME="$(echo -n "${{ secrets.DB_USERNAME }}" | tr -d '\r\n')"
+        export DB_PASSWORD="$(echo -n "${{ secrets.DB_PASSWORD }}" | tr -d '\r\n')"
+        export CERTIFICATE_ARN="$(echo -n "${{ vars.CERTIFICATE_ARN }}" | tr -d '\r\n')"
 
-          PARAMS=$(envsubst < environments/prod/parameters-core-prod.json \
-            | jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"')
+        # Gera JSON final
+        envsubst < environments/prod/parameters-core-prod.json > parameters-core-final.json
 
-          aws cloudformation deploy \
-            --template-file templates/core.yaml \
-            --stack-name ${{ env.STACK_CORE }} \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides "$PARAMS" ArtifactsBucket=${{ env.S3_BUCKET }}
+        echo "CORE parameters after substitution:"
+        cat parameters-core-final.json
+
+        # Valida JSON
+        jq '.' parameters-core-final.json
+
+        # Converte para formato do CloudFormation
+        PARAMS=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' parameters-core-final.json)
+
+        aws cloudformation deploy \
+          --template-file templates/core.yaml \
+          --stack-name ${{ env.STACK_CORE }} \
+          --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+          --parameter-overrides $PARAMS ArtifactsBucket=${{ env.S3_BUCKET }}
 
 
 # ==================================================
