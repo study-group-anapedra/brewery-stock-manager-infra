@@ -2,18 +2,24 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: ASG da aplicação + EC2 + UserData conectado ao IAM dinâmico
 
 Parameters:
-  ProjectName: Type: String
-  Environment: Type: String
-  AmiId: Type: AWS::EC2::Image::Id
-  InstanceType: 
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
     Type: String
     Default: t3.small
-  KeyPairName: Type: AWS::EC2::KeyPair::KeyName
-  DBUsername: Type: String
-  DBPassword: 
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  DBUsername:
+    Type: String
+  DBPassword:
     Type: String
     NoEcho: true
-  DBName: 
+  DBName:
     Type: String
     Default: stockmanagerprod
 
@@ -26,10 +32,11 @@ Resources:
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
-        # GARANTE que o Profile seja importado corretamente
+
         IamInstanceProfile:
-          Name: !ImportValue 
+          Name: !ImportValue
             Fn::Sub: "${ProjectName}-${Environment}-AppInstanceProfile"
+
         SecurityGroupIds:
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
@@ -40,26 +47,28 @@ Resources:
                 #!/bin/bash
                 set -e
 
-                # 1. FORÇA O AGENTE SSM A ACORDAR (Crítico para sub-redes privadas)
+                echo "== Instalando SSM Agent =="
                 yum install -y amazon-ssm-agent
                 systemctl enable amazon-ssm-agent
                 systemctl start amazon-ssm-agent
 
-                # 2. Atualização e dependências
+                echo "== Atualizando sistema =="
                 yum update -y
                 yum install -y java-21-amazon-corretto awscli ruby wget
 
-                # 3. Instala CodeDeploy Agent (Usando variável de região dinâmica)
+                echo "== Instalando CodeDeploy Agent =="
                 cd /home/ec2-user
-                REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-                wget https://aws-codedeploy-${REGION}.s3.${REGION}.amazonaws.com/latest/install
+                wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
                 chmod +x ./install
                 ./install auto
                 systemctl enable codedeploy-agent
-                systemctl restart codedeploy-agent
+                systemctl start codedeploy-agent
 
-                # 4. Configuração de ambiente
+                echo "== Diretório da aplicação =="
                 mkdir -p /home/ec2-user/app
+                chown -R ec2-user:ec2-user /home/ec2-user/app
+
+                echo "== Criando variáveis de ambiente globais =="
                 cat <<EOF > /etc/profile.d/app_env.sh
                 export DB_HOST=${DBEndpoint}
                 export DB_PORT=5432
@@ -67,8 +76,12 @@ Resources:
                 export DB_USERNAME=${DBUsername}
                 export DB_PASSWORD=${DBPassword}
                 EOF
+
                 chmod 600 /etc/profile.d/app_env.sh
-                chown ec2-user:ec2-user /home/ec2-user/app
+                chown root:root /etc/profile.d/app_env.sh
+
+                echo "UserData finalizado com sucesso"
+
               - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
                 DBName: !Ref DBName
@@ -79,20 +92,25 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
+
       LaunchTemplate:
         LaunchTemplateId: !Ref AppLaunchTemplate
-        # IMPORTANTE: Garante que o ASG sempre use a versão mais nova do Template
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+
       MinSize: "1"
       MaxSize: "2"
       DesiredCapacity: "1"
+
       VPCZoneIdentifier:
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
+
       TargetGroupARNs:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
+
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
+
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app"
@@ -100,6 +118,7 @@ Resources:
 
 Outputs:
   AutoScalingGroupName:
+    Description: Nome do ASG para integração com CodeDeploy
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
