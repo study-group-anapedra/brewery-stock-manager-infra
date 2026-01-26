@@ -2,24 +2,18 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: ASG da aplicação + EC2 + UserData conectado ao IAM dinâmico
 
 Parameters:
-  ProjectName:
-    Type: String
-  Environment:
-    Type: String
-  AmiId:
-    Type: AWS::EC2::Image::Id
-  InstanceType:
+  ProjectName: Type: String
+  Environment: Type: String
+  AmiId: Type: AWS::EC2::Image::Id
+  InstanceType: 
     Type: String
     Default: t3.small
-  KeyPairName:
-    Type: AWS::EC2::KeyPair::KeyName
-
-  DBUsername:
-    Type: String
-  DBPassword:
+  KeyPairName: Type: AWS::EC2::KeyPair::KeyName
+  DBUsername: Type: String
+  DBPassword: 
     Type: String
     NoEcho: true
-  DBName:
+  DBName: 
     Type: String
     Default: stockmanagerprod
 
@@ -32,7 +26,7 @@ Resources:
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
-        # CORREÇÃO AQUI: Removido o nome fixo, agora importa do iam.yaml
+        # GARANTE que o Profile seja importado corretamente
         IamInstanceProfile:
           Name: !ImportValue 
             Fn::Sub: "${ProjectName}-${Environment}-AppInstanceProfile"
@@ -46,22 +40,26 @@ Resources:
                 #!/bin/bash
                 set -e
 
+                # 1. FORÇA O AGENTE SSM A ACORDAR (Crítico para sub-redes privadas)
+                yum install -y amazon-ssm-agent
+                systemctl enable amazon-ssm-agent
+                systemctl start amazon-ssm-agent
+
+                # 2. Atualização e dependências
                 yum update -y
                 yum install -y java-21-amazon-corretto awscli ruby wget
 
-                # Instala CodeDeploy Agent
+                # 3. Instala CodeDeploy Agent (Usando variável de região dinâmica)
                 cd /home/ec2-user
-                wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
+                REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+                wget https://aws-codedeploy-${REGION}.s3.${REGION}.amazonaws.com/latest/install
                 chmod +x ./install
                 ./install auto
                 systemctl enable codedeploy-agent
-                systemctl start codedeploy-agent
+                systemctl restart codedeploy-agent
 
-                # Diretório da aplicação
+                # 4. Configuração de ambiente
                 mkdir -p /home/ec2-user/app
-                chown -R ec2-user:ec2-user /home/ec2-user/app
-
-                # Cria variáveis de ambiente globais
                 cat <<EOF > /etc/profile.d/app_env.sh
                 export DB_HOST=${DBEndpoint}
                 export DB_PORT=5432
@@ -69,10 +67,8 @@ Resources:
                 export DB_USERNAME=${DBUsername}
                 export DB_PASSWORD=${DBPassword}
                 EOF
-
                 chmod 600 /etc/profile.d/app_env.sh
-                chown root:root /etc/profile.d/app_env.sh
-
+                chown ec2-user:ec2-user /home/ec2-user/app
               - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
                 DBName: !Ref DBName
@@ -85,6 +81,7 @@ Resources:
       AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
       LaunchTemplate:
         LaunchTemplateId: !Ref AppLaunchTemplate
+        # IMPORTANTE: Garante que o ASG sempre use a versão mais nova do Template
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
       MinSize: "1"
       MaxSize: "2"
@@ -103,7 +100,6 @@ Resources:
 
 Outputs:
   AutoScalingGroupName:
-    Description: Nome do ASG para integração com CodeDeploy
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
