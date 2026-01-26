@@ -48,13 +48,15 @@ Resources:
                 set -e
 
                 echo "== Instalando SSM Agent =="
-                yum install -y amazon-ssm-agent
+                dnf install -y amazon-ssm-agent
                 systemctl enable amazon-ssm-agent
                 systemctl start amazon-ssm-agent
 
                 echo "== Atualizando sistema =="
-                yum update -y
-                yum install -y java-21-amazon-corretto awscli ruby wget
+                dnf update -y
+
+                echo "== Instalando dependências =="
+                dnf install -y java-21-amazon-corretto awscli ruby wget
 
                 echo "== Instalando CodeDeploy Agent =="
                 cd /home/ec2-user
@@ -122,3 +124,4 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
