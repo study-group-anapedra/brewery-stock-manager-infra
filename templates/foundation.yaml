@@ -33,6 +33,16 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
+  # 3. Stack de Identidade (IAM Role e Instance Profile)
+  # ADICIONADO PARA RESOLVER O "MANAGED: FALSE"
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/iam.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment      
+
 
 
 Outputs:
@@ -65,5 +75,11 @@ Outputs:
 
   DbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
- 
-    
+
+   # Output importante para confirmar que o Profile foi criado
+  AppInstanceProfile:
+    Value: !GetAtt IamStack.Outputs.AppInstanceProfileName   
+
+
+
+  

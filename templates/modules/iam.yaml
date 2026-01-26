@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Módulo de Identidade - Roles e Permissões para EC2 e CodeDeploy
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+
+Resources:
+  # 1. A ROLE (A identidade da máquina)
+  AppInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-app-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Essencial para o status "Managed: true" e acesso via Terminal Web
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        # Essencial para o CodeDeploy baixar o seu .jar do S3
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        # Essencial para enviar logs da aplicação para o CloudWatch
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  # 2. O INSTANCE PROFILE (O componente que "entrega" a Role para a EC2)
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-${Environment}-app-profile"
+      Roles:
+        - !Ref AppInstanceRole
+
+Outputs:
+  # Este é o valor que o seu arquivo ASG vai importar
+  AppInstanceProfileName:
+    Value: !Ref AppInstanceProfile
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppInstanceProfile"
+
+   

@@ -10,7 +10,7 @@ Parameters:
 
 Resources:
   # =========================
-  # NETWORK
+  # NETWORK BASE
   # =========================
   VPC:
     Type: AWS::EC2::VPC
@@ -35,6 +35,9 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
+  # =========================
+  # NAT GATEWAY (Saída Segura para as Sub-redes Privadas)
+  # =========================
   NatEip:
     Type: AWS::EC2::EIP
     Properties:
@@ -42,10 +45,10 @@ Resources:
 
   NatGateway:
     Type: AWS::EC2::NatGateway
-    DependsOn: AttachGateway # GARANTE QUE A REDE EXISTE ANTES DO NAT
+    DependsOn: AttachGateway
     Properties:
       AllocationId: !GetAtt NatEip.AllocationId
-      SubnetId: !Ref PublicSubnetAZ1
+      SubnetId: !Ref PublicSubnetAZ1 # O NAT DEVE ficar em uma sub-rede pública
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-nat"
@@ -116,7 +119,7 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-private-db-az2"
 
   # =========================
-  # ROUTES
+  # ROUTE TABLES & ROUTES
   # =========================
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -142,6 +145,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-private-rt"
 
+  # ROTA CRÍTICA: Permite que o CodeDeploy baixe o agente e o código
   PrivateRoute:
     Type: AWS::EC2::Route
     DependsOn: NatGateway
@@ -151,7 +155,7 @@ Resources:
       NatGatewayId: !Ref NatGateway
 
   # =========================
-  # ASSOCIATIONS
+  # ASSOCIATIONS (Vínculo das sub-redes às rotas)
   # =========================
   PublicAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -190,9 +194,8 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
 
 # =========================
-# OUTPUTS COM EXPORT (ESSENCIAL PARA CONEXÃO)
-# ========================
-
+# OUTPUTS COM EXPORT
+# =========================
 Outputs:
   VpcId:
     Value: !Ref VPC

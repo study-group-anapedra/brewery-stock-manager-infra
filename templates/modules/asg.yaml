@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ASG da aplicação + EC2 + UserData com conexão automática ao banco (CodeDeploy + RDS)
+Description: ASG da aplicação + EC2 + UserData conectado ao IAM dinâmico
 
 Parameters:
   ProjectName:
@@ -24,8 +24,6 @@ Parameters:
     Default: stockmanagerprod
 
 Resources:
-  # AppInstanceRole e AppInstanceProfile foram removidos daqui para usar a role fixa que já existe no seu IAM.
-
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -34,9 +32,10 @@ Resources:
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
+        # CORREÇÃO AQUI: Removido o nome fixo, agora importa do iam.yaml
         IamInstanceProfile:
-          # Alterado de !Ref para o nome fixo da sua role que tem as permissões corretas.
-          Name: "stock-manager-ec2-role"
+          Name: !ImportValue 
+            Fn::Sub: "${ProjectName}-${Environment}-AppInstanceProfile"
         SecurityGroupIds:
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
 
@@ -62,7 +61,7 @@ Resources:
                 mkdir -p /home/ec2-user/app
                 chown -R ec2-user:ec2-user /home/ec2-user/app
 
-                # Cria variáveis de ambiente globais para a aplicação
+                # Cria variáveis de ambiente globais
                 cat <<EOF > /etc/profile.d/app_env.sh
                 export DB_HOST=${DBEndpoint}
                 export DB_PORT=5432
@@ -73,9 +72,6 @@ Resources:
 
                 chmod 600 /etc/profile.d/app_env.sh
                 chown root:root /etc/profile.d/app_env.sh
-
-                echo "Arquivo /etc/profile.d/app_env.sh criado:"
-                cat /etc/profile.d/app_env.sh
 
               - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
@@ -107,8 +103,7 @@ Resources:
 
 Outputs:
   AutoScalingGroupName:
-    Description: Nome do AutoScalingGroup para integração com CodeDeploy e Alarmes
+    Description: Nome do ASG para integração com CodeDeploy
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
