@@ -34,7 +34,6 @@ Resources:
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
   # 3. Stack de Identidade (IAM Role e Instance Profile)
-  # ADICIONADO PARA RESOLVER O "MANAGED: FALSE"
   IamStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -43,11 +42,11 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment      
 
-
-
 Outputs:
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-id"
 
   PublicSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PublicSubnetAZ1
@@ -57,28 +56,44 @@ Outputs:
 
   PrivateAppSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
 
   PrivateAppSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateAppSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
 
   PrivateDbSubnetAZ1:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ1
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az1"
 
   PrivateDbSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ2
+    Export:
+      Name: !Sub "${ProjectName}-vpc-${Environment}-private-db-az2"
 
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
 
   AppSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AppSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSG"
 
   DbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DbSG"
 
-   # Output importante para confirmar que o Profile foi criado
+  # CORREÇÃO: Mantido seu output original com a adição do Export necessário para o ASG
   AppInstanceProfile:
-    Value: !GetAtt IamStack.Outputs.AppInstanceProfileName   
+    Value: !GetAtt IamStack.Outputs.AppInstanceProfileName
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppInstanceProfile"
 
 
 

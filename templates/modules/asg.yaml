@@ -34,7 +34,7 @@ Resources:
         KeyName: !Ref KeyPairName
 
         IamInstanceProfile:
-          Name: !ImportValue
+          Name: !ImportValue 
             Fn::Sub: "${ProjectName}-${Environment}-AppInstanceProfile"
 
         SecurityGroupIds:
@@ -45,22 +45,24 @@ Resources:
             Fn::Sub:
               - |
                 #!/bin/bash
+                # Redireciona logs para depuração caso o UserData falhe
+                exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
                 set -e
 
-                echo "== Instalando SSM Agent =="
-                dnf install -y amazon-ssm-agent
+                echo "== Atualizando sistema e dependências =="
+                dnf update -y
+                dnf install -y amazon-ssm-agent java-21-amazon-corretto awscli ruby wget
+
+                echo "== Garantindo Agente SSM (Managed Status) =="
                 systemctl enable amazon-ssm-agent
                 systemctl start amazon-ssm-agent
 
-                echo "== Atualizando sistema =="
-                dnf update -y
-
-                echo "== Instalando dependências =="
-                dnf install -y java-21-amazon-corretto awscli ruby wget
-
-                echo "== Instalando CodeDeploy Agent =="
+                echo "== Instalando CodeDeploy Agent com Resiliência =="
                 cd /home/ec2-user
-                wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install
+                # Loop de retry para evitar falha se o NAT Gateway oscilar no início
+                for i in {1..5}; do 
+                  wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install && break || sleep 10
+                done
                 chmod +x ./install
                 ./install auto
                 systemctl enable codedeploy-agent
@@ -79,7 +81,8 @@ Resources:
                 export DB_PASSWORD=${DBPassword}
                 EOF
 
-                chmod 600 /etc/profile.d/app_env.sh
+                # Permissão 644 para que o ec2-user consiga ler as variáveis
+                chmod 644 /etc/profile.d/app_env.sh
                 chown root:root /etc/profile.d/app_env.sh
 
                 echo "UserData finalizado com sucesso"
@@ -124,4 +127,6 @@ Outputs:
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
+
+      
 

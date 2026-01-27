@@ -22,30 +22,43 @@ Resources:
             Action: sts:AssumeRole
 
       ManagedPolicyArns:
-        # Faz a instância virar "Managed: true" no SSM
+        # Resolve o "Managed: False" permitindo comunicação com Systems Manager [cite: 2025-12-19]
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-
-        # Permite que o CodeDeploy registre e controle a instância
+        # Necessário para o Agente do CodeDeploy na instância [cite: 2025-12-19]
         - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
-
-        # Permite baixar artefatos do S3
-        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-
-        # Permite envio de logs e métricas para o CloudWatch
+        # Permite envio de logs para o CloudWatch [cite: 2025-12-19]
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+      Policies:
+        - PolicyName: S3ArtifactsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListBucket
+                Resource: 
+                  # Permissão específica para o seu bucket de artefatos [cite: 2025-12-19]
+                  - arn:aws:s3:::stock-manager-prod-artifacts
+                  - arn:aws:s3:::stock-manager-prod-artifacts/*
 
   # 2. INSTANCE PROFILE (O "adaptador" entre a Role e a EC2)
   AppInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      # O !Ref aqui retorna o NOME do profile, que é o que o ASG precisa [cite: 2025-12-19]
       InstanceProfileName: !Sub "${ProjectName}-${Environment}-app-profile"
       Roles:
         - !Ref AppInstanceRole
 
 Outputs:
-  # Este é o valor que o ASG vai importar
   AppInstanceProfileName:
-    Description: Instance Profile da aplicação para EC2 / ASG
+    Description: Nome do Instance Profile para exportação
     Value: !Ref AppInstanceProfile
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AppInstanceProfile"
+
+
+      
