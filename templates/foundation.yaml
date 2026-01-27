@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Job 1 - Foundation Stack (VPC + Security Groups + IAM)
+Description: Job 1 - Foundation Stack (VPC + Security Groups)
 
 Parameters:
   ProjectName:
@@ -33,7 +33,7 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
-  # 3. Stack de Identidade
+  # 3. Stack de Identidade (IAM Role e Instance Profile)
   IamStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -43,7 +43,7 @@ Resources:
         Environment: !Ref Environment      
 
 Outputs:
-  # REMOVIDOS EXPORTS DUPLICADOS: Os nomes abaixo já são exportados pelos módulos VPC e SG
+  # Mantive todos os seus Outputs para visualização, mas sem o "Export" duplicado
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
 
@@ -74,8 +74,9 @@ Outputs:
   DbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
 
-  # MANTIDO EXPORT: Este é o único que o asg.yaml precisa importar e que ainda não foi exportado
+  # Este valor é retornado pela stack IamStack e o Export já existe dentro do iam.yaml
   AppInstanceProfile:
     Value: !GetAtt IamStack.Outputs.AppInstanceProfileName
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AppInstanceProfile"
+
+
+  
