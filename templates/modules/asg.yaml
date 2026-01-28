@@ -1,27 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ASG da aplicação + EC2 + UserData conectado ao IAM dinâmico
+Description: ASG da aplicação + EC2 + UserData corrigido para suporte a diagnóstico e CodeDeploy
 
 Parameters:
-  ProjectName:
-    Type: String
-  Environment:
-    Type: String
-  AmiId:
-    Type: AWS::EC2::Image::Id
-  InstanceType:
-    Type: String
-    Default: t3.small
-  KeyPairName:
-    Type: AWS::EC2::KeyPair::KeyName
-
-  DBUsername:
-    Type: String
-  DBPassword:
-    Type: String
-    NoEcho: true
-  DBName:
-    Type: String
-    Default: stockmanagerprod
+  ProjectName: { Type: String }
+  Environment: { Type: String }
+  AmiId: { Type: AWS::EC2::Image::Id }
+  InstanceType: { Type: String, Default: t3.small }
+  KeyPairName: { Type: AWS::EC2::KeyPair::KeyName }
+  DBUsername: { Type: String }
+  DBPassword: { Type: String, NoEcho: true }
+  DBName: { Type: String, Default: stockmanagerprod }
 
 Resources:
   AppLaunchTemplate:
@@ -32,34 +20,29 @@ Resources:
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
-
         IamInstanceProfile:
           Name: !ImportValue 
             Fn::Sub: "${ProjectName}-${Environment}-AppInstanceProfile"
-
         SecurityGroupIds:
           - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-AppSG"
-
         UserData:
           Fn::Base64:
             Fn::Sub:
               - |
                 #!/bin/bash
-                # Redireciona logs para depuração caso o UserData falhe
                 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
                 set -e
 
-                echo "== Atualizando sistema e dependências =="
+                echo "== Instalando dependências e ferramentas de rede =="
+                # Adicionado nmap-ncat para o teste de conexão nc [cite: 2025-12-23]
                 dnf update -y
-                dnf install -y amazon-ssm-agent java-21-amazon-corretto awscli ruby wget
+                dnf install -y amazon-ssm-agent java-21-amazon-corretto awscli ruby wget nmap-ncat
 
-                echo "== Garantindo Agente SSM (Managed Status) =="
                 systemctl enable amazon-ssm-agent
                 systemctl start amazon-ssm-agent
 
-                echo "== Instalando CodeDeploy Agent com Resiliência =="
+                echo "== Instalando CodeDeploy Agent =="
                 cd /home/ec2-user
-                # Loop de retry para evitar falha se o NAT Gateway oscilar no início
                 for i in {1..5}; do 
                   wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install && break || sleep 10
                 done
@@ -68,11 +51,12 @@ Resources:
                 systemctl enable codedeploy-agent
                 systemctl start codedeploy-agent
 
-                echo "== Diretório da aplicação =="
+                echo "== Configurando ambiente e permissões =="
                 mkdir -p /home/ec2-user/app
+                # Garante que o ec2-user tenha posse do diretório antes do deploy [cite: 2025-12-23]
                 chown -R ec2-user:ec2-user /home/ec2-user/app
 
-                echo "== Criando variáveis de ambiente globais =="
+                # Criando o arquivo que seu script de start irá consumir [cite: 2025-12-23]
                 cat <<EOF > /etc/profile.d/app_env.sh
                 export DB_HOST=${DBEndpoint}
                 export DB_PORT=5432
@@ -81,12 +65,10 @@ Resources:
                 export DB_PASSWORD=${DBPassword}
                 EOF
 
-                # Permissão 644 para que o ec2-user consiga ler as variáveis
                 chmod 644 /etc/profile.d/app_env.sh
                 chown root:root /etc/profile.d/app_env.sh
 
-                echo "UserData finalizado com sucesso"
-
+                echo "== UserData finalizado =="
               - DBEndpoint:
                   Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DBEndpoint"
                 DBName: !Ref DBName
@@ -97,25 +79,19 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
-
       LaunchTemplate:
         LaunchTemplateId: !Ref AppLaunchTemplate
         Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
-
       MinSize: "1"
       MaxSize: "2"
       DesiredCapacity: "1"
-
       VPCZoneIdentifier:
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az1"
         - Fn::ImportValue: !Sub "${ProjectName}-vpc-${Environment}-private-app-az2"
-
       TargetGroupARNs:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-TargetGroupArn"
-
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
-
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app"
@@ -123,10 +99,6 @@ Resources:
 
 Outputs:
   AutoScalingGroupName:
-    Description: Nome do ASG para integração com CodeDeploy
     Value: !Ref AppAsg
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AsgName"
-
-      
-
