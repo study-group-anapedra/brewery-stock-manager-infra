@@ -206,7 +206,7 @@ Durante o curso e os testes, tive que **criar e destruir stacks diversas vezes**
 
 
 
-## 🧑‍💻 Autora
+## Autora
 
 **Ana Santana**  
 📧 **Email:** anapedra.mil@gmail.com  
