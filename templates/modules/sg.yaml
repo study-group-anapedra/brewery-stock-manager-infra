@@ -1,16 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Security Groups base para aplicacao monolitica - Versao ASCII
+Description: Security Groups base para aplicacao monolitica - Versao Final Sem Acentos
 
 Parameters:
-  ProjectName: { Type: String }
-  Environment: { Type: String }
-  VpcId: { Type: String }
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  VpcId:
+    Type: String
+    Description: ID da VPC vindo do modulo vpc.yaml
 
 Resources:
+  # Security Group para o Load Balancer
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      # Removido acento de 'trafego' para evitar erro ASCII
       GroupDescription: Permite trafego HTTP e HTTPS da Internet para o ALB
       VpcId: !Ref VpcId
       SecurityGroupIngress:
@@ -25,7 +29,11 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
 
+  # Security Group para a Instancia EC2
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -39,18 +47,28 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
+  # Security Group para o Banco de Dados (Sem regras inline)
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Regras de acesso ao Banco de Dados
+      GroupDescription: Container para as regras do Banco de Dados
       VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
-  # Regra de entrada separada para evitar dependencia circular [cite: 2025-12-23]
+  # Regra de entrada separada para o RDS
   DbIngressFromApp:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      Description: Permite conexao PostgreSQL vinda da App
+      Description: Permite conexao PostgreSQL vinda das instancias da App
       GroupId: !Ref DbSecurityGroup
       IpProtocol: tcp
       FromPort: 5432
@@ -60,10 +78,13 @@ Resources:
 Outputs:
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
   AppSecurityGroup:
     Value: !Ref AppSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-AppSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-AppSG"
   DbSecurityGroup:
     Value: !Ref DbSecurityGroup
-    Export: { Name: !Sub "${ProjectName}-${Environment}-DbSG" }
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-DbSG"
