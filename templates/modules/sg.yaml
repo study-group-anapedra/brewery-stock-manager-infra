@@ -1,23 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Security Groups base para aplicação monolítica - Versão Final Corrigida
+Description: Security Groups base para aplicacao monolitica - Versao ASCII
 
 Parameters:
-  ProjectName:
-    Type: String
-  Environment:
-    Type: String
-  VpcId:
-    Type: String
-    Description: ID da VPC vindo do modulo vpc.yaml
+  ProjectName: { Type: String }
+  Environment: { Type: String }
+  VpcId: { Type: String }
 
 Resources:
-  # ==================================================
-  # 1. ALB Security Group (Entrada Pública)
-  # ==================================================
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Permite tráfego HTTP/HTTPS da Internet para o ALB
+      # Removido acento de 'trafego' para evitar erro ASCII
+      GroupDescription: Permite trafego HTTP e HTTPS da Internet para o ALB
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -31,17 +25,11 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
 
-  # ==================================================
-  # 2. App Security Group (Instâncias EC2 Privadas)
-  # ==================================================
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Permite tráfego apenas do ALB na porta 8080
+      GroupDescription: Permite trafego apenas do ALB na porta 8080
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -49,35 +37,20 @@ Resources:
           ToPort: 8080
           SourceSecurityGroupId: !Ref AlbSecurityGroup
       SecurityGroupEgress:
-        - IpProtocol: -1 # Garante que a EC2 consiga falar com S3, RDS e Internet (via NAT) [cite: 2025-12-23]
+        - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # ==================================================
-  # 3. DB Security Group (RDS Aurora)
-  # ==================================================
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Container para as regras do Banco de Dados
+      GroupDescription: Regras de acesso ao Banco de Dados
       VpcId: !Ref VpcId
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
-  # ==================================================
-  # 4. Regras de Ingress (Recursos Separados)
-  # ==================================================
-  # Libera a porta 5432 explicitamente para a aplicação [cite: 2025-12-23]
+  # Regra de entrada separada para evitar dependencia circular [cite: 2025-12-23]
   DbIngressFromApp:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      Description: Permite conexão PostgreSQL vinda das instâncias da App
+      Description: Permite conexao PostgreSQL vinda da App
       GroupId: !Ref DbSecurityGroup
       IpProtocol: tcp
       FromPort: 5432
@@ -87,13 +60,10 @@ Resources:
 Outputs:
   AlbSecurityGroup:
     Value: !Ref AlbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AlbSG"
+    Export: { Name: !Sub "${ProjectName}-${Environment}-AlbSG" }
   AppSecurityGroup:
     Value: !Ref AppSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-AppSG"
+    Export: { Name: !Sub "${ProjectName}-${Environment}-AppSG" }
   DbSecurityGroup:
     Value: !Ref DbSecurityGroup
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-DbSG"
+    Export: { Name: !Sub "${ProjectName}-${Environment}-DbSG" }
