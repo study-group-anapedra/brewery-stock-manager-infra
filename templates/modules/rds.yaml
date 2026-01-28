@@ -2,19 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Modulo RDS Aurora PostgreSQL - Versao Final para Entrega
 
 Parameters:
-  ProjectName:
-    Type: String
-  Environment:
-    Type: String
-  DBUsername:
-    Type: String
-  DBPassword:
-    Type: String
-    NoEcho: true
-  DBName:
-    Type: String
-  DBInstanceClass:
-    Type: String
+  ProjectName: { Type: String }
+  Environment: { Type: String }
+  DBUsername: { Type: String }
+  DBPassword: { Type: String, NoEcho: true }
+  DBName: { Type: String }
+  DBInstanceClass: { Type: String }
 
 Resources:
   DBSubnetGroup:
@@ -27,8 +20,9 @@ Resources:
 
   DBCluster:
     Type: AWS::RDS::DBCluster
-    DependsOn: DBSubnetGroup
+    DependsOn: DBSubnetGroup # GARANTE QUE A REDE ESTEJA PRONTA [cite: 2025-12-23]
     Properties:
+      # IDENTIFICADOR V2 PARA EVITAR CONFLITO COM DELECOES ANTIGAS [cite: 2025-12-23]
       DBClusterIdentifier: !Sub "${ProjectName}-${Environment}-cluster-v2"
       Engine: aurora-postgresql
       EngineVersion: "15.8"
@@ -36,23 +30,17 @@ Resources:
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref DBSubnetGroup
-
-      # Usa exclusivamente o SG do banco criado na stack de SG
       VpcSecurityGroupIds:
         - Fn::ImportValue: !Sub "${ProjectName}-${Environment}-DbSG"
-
       StorageEncrypted: true
-      PubliclyAccessible: false
 
   DBInstance:
     Type: AWS::RDS::DBInstance
-    DependsOn: DBCluster
     Properties:
       DBClusterIdentifier: !Ref DBCluster
       DBInstanceClass: !Ref DBInstanceClass
       Engine: aurora-postgresql
       EngineVersion: "15.8"
-      PubliclyAccessible: false
 
 Outputs:
   DBEndpoint:
