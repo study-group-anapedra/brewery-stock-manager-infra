@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Security Groups base para aplicação monolítica
+Description: Security Groups base para aplicacao monolitica - Versao Final Sem Conflitos
 
 Parameters:
   ProjectName:
@@ -11,10 +11,13 @@ Parameters:
     Description: ID da VPC vindo do modulo vpc.yaml
 
 Resources:
+  # ==================================================
+  # 1. ALB Security Group - Porta de entrada publica
+  # ==================================================
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB SG
+      GroupDescription: ALB SG - Acesso Publico via Internet
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -32,10 +35,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-alb-sg"
 
+  # ==================================================
+  # 2. App Security Group - Apenas o ALB pode acessar a EC2
+  # ==================================================
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: App SG
+      GroupDescription: App SG - Acesso Privado da aplicacao
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -49,11 +55,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-app-sg"
 
-  # Security Group do banco SEM regras de entrada inline
+  # ==================================================
+  # 3. DB Security Group - Sem regras inline de entrada
+  # ==================================================
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DB SG
+      GroupDescription: DB SG - Regras de rede para o Banco de Dados
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -62,10 +70,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-db-sg"
 
-  # Regra de entrada criada como recurso separado
+  # ==================================================
+  # 4. Regra de Ingress isolada - App → DB na porta 5432
+  # ==================================================
   DbIngressFromApp:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
+      Description: Permite conexao PostgreSQL vinda da App
       GroupId: !Ref DbSecurityGroup
       IpProtocol: tcp
       FromPort: 5432
@@ -74,16 +85,19 @@ Resources:
 
 Outputs:
   AlbSecurityGroup:
+    Description: Security Group do Application Load Balancer
     Value: !Ref AlbSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AlbSG"
 
   AppSecurityGroup:
+    Description: Security Group da Aplicacao (EC2 / ASG)
     Value: !Ref AppSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-AppSG"
 
   DbSecurityGroup:
+    Description: Security Group do Banco de Dados (RDS)
     Value: !Ref DbSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-DbSG"
