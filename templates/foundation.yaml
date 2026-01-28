@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Job 1 - Foundation Stack (VPC + Security Groups)
+Description: Job 1 - Foundation Stack (VPC + Security Groups + IAM)
 
 Parameters:
   ProjectName:
@@ -22,7 +22,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
 
-  # 2. Stack de Segurança
+  # 2. Stack de Segurança (depende da VPC)
   SecurityGroupStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VpcStack
@@ -33,9 +33,10 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt VpcStack.Outputs.VpcId
 
-  # 3. Stack de Identidade (IAM Role e Instance Profile)
+  # 3. Stack de Identidade (IAM) – também depende da VPC
   IamStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: VpcStack
     Properties:
       TemplateURL: !Sub "https://${ArtifactsBucket}.s3.amazonaws.com/modules/iam.yaml"
       Parameters:
@@ -43,7 +44,7 @@ Resources:
         Environment: !Ref Environment      
 
 Outputs:
-  # Mantive todos os seus Outputs para visualização, mas sem o "Export" duplicado
+  # Rede
   VpcId:
     Value: !GetAtt VpcStack.Outputs.VpcId
 
@@ -65,6 +66,7 @@ Outputs:
   PrivateDbSubnetAZ2:
     Value: !GetAtt VpcStack.Outputs.PrivateDbSubnetAZ2
 
+  # Security Groups
   AlbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.AlbSecurityGroup
 
@@ -74,9 +76,6 @@ Outputs:
   DbSecurityGroup:
     Value: !GetAtt SecurityGroupStack.Outputs.DbSecurityGroup
 
-  # Este valor é retornado pela stack IamStack e o Export já existe dentro do iam.yaml
+  # IAM
   AppInstanceProfile:
     Value: !GetAtt IamStack.Outputs.AppInstanceProfileName
-
-
-  
